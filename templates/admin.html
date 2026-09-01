@@ -3,419 +3,679 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Aydin Print — Panel Admin & HPP Kasir</title>
+    <title>Kasir & Admin — Aydin Print</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
     <style>
-        :root {
-            --primary: #0284c7;
-            --primary-hover: #0369a1;
-            --bg: #0f172a;
-            --card-bg: #1e293b;
-            --card-border: #334155;
-            --text-main: #f8fafc;
-            --text-muted: #94a3b8;
-            --success: #22c55e;
-            --danger: #ef4444;
-        }
-
-        * { box-sizing: border-box; margin: 0; padding: 0; font-family: system-ui, -apple-system, sans-serif; }
-        body { background-color: var(--bg); color: var(--text-main); min-height: 100vh; padding: 20px; }
-        .container { max-width: 1100px; margin: 0 auto; }
-
-        header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; padding-bottom: 16px; border-bottom: 1px solid var(--card-border); }
-        header h1 { font-size: 24px; color: #38bdf8; }
-        .header-links a { color: var(--text-muted); text-decoration: none; font-size: 14px; margin-left: 15px; }
-        .header-links a:hover { color: #fff; }
-
-        /* Navigation Tabs */
-        .nav-tabs { display: flex; gap: 10px; margin-bottom: 20px; border-bottom: 1px solid var(--card-border); padding-bottom: 10px; overflow-x: auto; }
-        .nav-tab { padding: 10px 18px; border-radius: 8px; border: none; background: #1e293b; color: var(--text-muted); font-weight: 600; cursor: pointer; transition: 0.2s; white-space: nowrap; }
-        .nav-tab.active { background: var(--primary); color: #fff; }
-
-        /* Card Section */
-        .tab-content { display: none; }
-        .tab-content.active { display: block; }
-        .card { background: var(--card-bg); border-radius: 12px; border: 1px solid var(--card-border); padding: 20px; margin-bottom: 20px; }
-        .card-title { font-size: 18px; font-weight: 700; color: #38bdf8; margin-bottom: 16px; display: flex; justify-content: space-between; align-items: center; }
-
-        /* Tables */
-        table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 14px; }
-        th, td { padding: 12px 14px; text-align: left; border-bottom: 1px solid var(--card-border); }
-        th { color: var(--text-muted); font-weight: 600; background: #131d33; }
-        tr:hover { background: rgba(255,255,255,0.02); }
-
-        /* Inputs & Buttons */
-        input, select, textarea {
-            width: 100%; padding: 10px 12px; border-radius: 8px; border: 1px solid var(--card-border); background: #0b1120; color: #fff; font-size: 14px; outline: none; margin-top: 4px;
-        }
-        .btn { padding: 10px 18px; border-radius: 8px; border: none; font-weight: 600; cursor: pointer; transition: 0.2s; font-size: 14px; }
-        .btn-primary { background: var(--primary); color: #fff; }
-        .btn-primary:hover { background: var(--primary-hover); }
-        .btn-success { background: var(--success); color: #fff; }
-        .btn-danger { background: var(--danger); color: #fff; padding: 6px 12px; font-size: 12px; }
-
-        /* Grid */
-        .form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px; margin-bottom: 16px; }
-        .form-group { margin-bottom: 12px; }
-        .form-group label { font-size: 13px; color: var(--text-muted); font-weight: 500; }
-
-        /* Badge */
-        .badge { padding: 4px 8px; border-radius: 6px; font-size: 12px; font-weight: 600; }
-        .badge-success { background: rgba(34, 197, 94, 0.2); color: #4ade80; }
-        .badge-info { background: rgba(56, 189, 248, 0.2); color: #38bdf8; }
-
-        /* Orders list */
-        .order-card { background: #131d33; border: 1px solid var(--card-border); border-radius: 10px; padding: 16px; margin-bottom: 12px; display: flex; justify-content: space-between; align-items: center; }
-        .order-info h3 { font-size: 16px; color: #fff; margin-bottom: 4px; }
-        .order-meta { font-size: 13px; color: var(--text-muted); display: flex; gap: 15px; flex-wrap: wrap; }
+        body { background-color: #0f172a; color: #f8fafc; font-family: system-ui, sans-serif; }
+        .glass-panel { background: rgba(30, 41, 59, 0.7); backdrop-filter: blur(10px); border: 1px solid rgba(255, 255, 255, 0.08); }
     </style>
 </head>
-<body>
-<div class="container">
-    <header>
-        <div>
-            <h1>⚙️ Panel Admin Aydin Print</h1>
-            <p style="color:var(--text-muted); font-size:13px;">Kelola Master Data, Kalkulator HPP, Preset, Aksesoris & Antrian Order</p>
+<body class="min-h-screen flex flex-col">
+
+    <!-- Auth Lock Screen for Non-Localhost or Unauthenticated Admin -->
+    <div id="lockScreen" class="fixed inset-0 bg-slate-950/90 backdrop-blur-md z-50 flex items-center justify-center p-4 {% if is_auth %}hidden{% endif %}">
+        <div class="glass-panel max-w-sm w-full p-6 rounded-2xl text-center space-y-4 border border-sky-500/30">
+            <div class="w-14 h-14 rounded-2xl bg-gradient-to-br from-sky-500 to-indigo-600 flex items-center justify-center mx-auto text-white shadow-lg shadow-sky-500/25">
+                <i data-lucide="lock" class="w-7 h-7"></i>
+            </div>
+            <div>
+                <h2 class="text-lg font-bold text-white">Autentikasi Kasir</h2>
+                <p class="text-xs text-slate-400 mt-1">Masukkan PIN Kasir Toko untuk mengakses panel manajemen</p>
+            </div>
+            <form id="pinForm" onsubmit="submitPin(event)" class="space-y-3">
+                <input type="password" id="inputPin" placeholder="Masukkan PIN Kasir" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-3 text-center text-lg font-mono tracking-widest text-white focus:border-sky-500 focus:outline-none" autofocus required>
+                <button type="submit" class="w-full py-3 bg-sky-600 hover:bg-sky-500 text-white rounded-xl text-sm font-bold shadow-lg shadow-sky-600/30 transition">Masuk ke Panel</button>
+            </form>
+            <p id="pinError" class="text-xs text-rose-400 font-semibold hidden">PIN salah, silakan coba lagi.</p>
         </div>
-        <div class="header-links">
-            <a href="/" target="_blank">🌐 Buka Web Upload Pelanggan</a>
+    </div>
+
+    <!-- Top Header -->
+    <header class="bg-slate-900 border-b border-slate-800 px-6 py-4 flex flex-wrap items-center justify-between gap-4">
+        <div class="flex items-center space-x-3">
+            <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-sky-500 to-indigo-600 flex items-center justify-center shadow-md shadow-sky-500/20">
+                <i data-lucide="shield-check" class="w-6 h-6 text-white"></i>
+            </div>
+            <div>
+                <h1 class="text-lg font-bold text-white tracking-wide">PANEL KASIR & HPP PRINT</h1>
+                <p class="text-xs text-sky-400 font-medium">Aydin Print — Manajemen Master Data & Antrian Cetak</p>
+            </div>
+        </div>
+        <div class="flex items-center space-x-3">
+            <button onclick="toggleAudio()" id="btnAudio" class="px-3 py-1.5 rounded-lg border border-slate-700 bg-slate-800 text-xs font-semibold text-emerald-400 flex items-center space-x-1.5 transition hover:bg-slate-700">
+                <i data-lucide="volume-2" class="w-4 h-4"></i>
+                <span id="audioStatusText">Suara Notifikasi: ON</span>
+            </button>
+            <a href="/" target="_blank" class="px-3.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-xs font-bold text-slate-200 border border-slate-700 transition flex items-center space-x-1.5">
+                <i data-lucide="external-link" class="w-3.5 h-3.5"></i>
+                <span>Buka Web Pelanggan</span>
+            </a>
+            <button onclick="logoutAdmin()" class="px-3 py-1.5 rounded-lg bg-rose-500/20 hover:bg-rose-500/30 text-xs font-semibold text-rose-400 border border-rose-500/30 transition">
+                Logout
+            </button>
         </div>
     </header>
 
-    <div class="nav-tabs">
-        <button class="nav-tab active" onclick="showTab('tab-orders')">📥 Antrian Order Masuk</button>
-        <button class="nav-tab" onclick="showTab('tab-settings')">💡 Pengaturan & Margin HPP</button>
-        <button class="nav-tab" onclick="showTab('tab-papers')">📄 Master Kertas</button>
-        <button class="nav-tab" onclick="showTab('tab-accessories')">🎁 Aksesoris & Gantungan Kunci</button>
-        <button class="nav-tab" onclick="showTab('tab-presets')">📐 Preset & Layout Otomatis</button>
-        <button class="nav-tab" onclick="showTab('tab-printers')">🖨️ Master Printer & Tinta</button>
-    </div>
+    <!-- Navigation Tabs -->
+    <nav class="bg-slate-900/50 border-b border-slate-800 px-6 py-2 flex space-x-2 overflow-x-auto">
+        <button onclick="switchTab('orders')" id="tabBtn-orders" class="tab-btn px-4 py-2 rounded-lg text-sm font-semibold transition bg-sky-600 text-white flex items-center space-x-2">
+            <i data-lucide="inbox" class="w-4 h-4"></i>
+            <span>Antrian Order (<span id="badgeOrderCount">0</span>)</span>
+        </button>
+        <button onclick="switchTab('printers')" id="tabBtn-printers" class="tab-btn px-4 py-2 rounded-lg text-sm font-semibold transition text-slate-400 hover:text-white flex items-center space-x-2">
+            <i data-lucide="printer" class="w-4 h-4"></i>
+            <span>Printer</span>
+        </button>
+        <button onclick="switchTab('papers')" id="tabBtn-papers" class="tab-btn px-4 py-2 rounded-lg text-sm font-semibold transition text-slate-400 hover:text-white flex items-center space-x-2">
+            <i data-lucide="layers" class="w-4 h-4"></i>
+            <span>Kertas</span>
+        </button>
+        <button onclick="switchTab('accessories')" id="tabBtn-accessories" class="tab-btn px-4 py-2 rounded-lg text-sm font-semibold transition text-slate-400 hover:text-white flex items-center space-x-2">
+            <i data-lucide="package" class="w-4 h-4"></i>
+            <span>Aksesoris</span>
+        </button>
+        <button onclick="switchTab('presets')" id="tabBtn-presets" class="tab-btn px-4 py-2 rounded-lg text-sm font-semibold transition text-slate-400 hover:text-white flex items-center space-x-2">
+            <i data-lucide="sparkles" class="w-4 h-4"></i>
+            <span>Presets & Produk</span>
+        </button>
+        <button onclick="switchTab('settings')" id="tabBtn-settings" class="tab-btn px-4 py-2 rounded-lg text-sm font-semibold transition text-slate-400 hover:text-white flex items-center space-x-2">
+            <i data-lucide="settings" class="w-4 h-4"></i>
+            <span>Pengaturan Toko & HPP</span>
+        </button>
+    </nav>
 
-    <!-- TAB 1: ANTRIAN ORDER -->
-    <div id="tab-orders" class="tab-content active">
-        <div class="card">
-            <div class="card-title">
-                <span>Daftar Order Pelanggan</span>
-                <button class="btn btn-primary" onclick="loadOrders()">🔄 Refresh</button>
-            </div>
-            <div id="ordersList">Memuat orderan...</div>
-        </div>
-    </div>
+    <!-- Main Content Area -->
+    <main class="flex-1 p-6 max-w-7xl w-full mx-auto space-y-6">
 
-    <!-- TAB 2: PENGATURAN HPP & MARGIN -->
-    <div id="tab-settings" class="tab-content">
-        <div class="card">
-            <div class="card-title">Pengaturan Biaya Operasional & Keuntungan</div>
-            <div class="form-grid">
-                <div class="form-group">
-                    <label>Nama Toko / Usaha:</label>
-                    <input type="text" id="cfgStoreName">
+        <!-- ================= TAB 1: ANTRIAN ORDERS ================= -->
+        <section id="tab-orders" class="space-y-4">
+            <div class="flex items-center justify-between">
+                <div>
+                    <h2 class="text-base font-bold text-white flex items-center space-x-2">
+                        <i data-lucide="list-ordered" class="w-5 h-5 text-sky-400"></i>
+                        <span>Daftar Pesanan Masuk (Real-Time)</span>
+                    </h2>
+                    <p class="text-xs text-slate-400">Otomatis update dan berbunyi notifikasi saat ada file baru</p>
                 </div>
-                <div class="form-group">
-                    <label>Tarif Listrik per kWh (Rp):</label>
-                    <input type="number" id="cfgElectricity">
-                </div>
-                <div class="form-group">
-                    <label>Default Margin Keuntungan (%):</label>
-                    <input type="number" id="cfgMargin">
-                </div>
-                <div class="form-group">
-                    <label>Tipe Margin:</label>
-                    <select id="cfgMarginType">
-                        <option value="MARKUP">Markup (HPP + % Markup)</option>
-                        <option value="GROSS_MARGIN">Gross Margin (% Profit dari Harga Jual)</option>
-                    </select>
-                </div>
-                <div class="form-group">
-                    <label>Pembulatan Harga Jual ke (Rp):</label>
-                    <input type="number" id="cfgRoundTo" value="500">
-                </div>
+                <button onclick="fetchOrders()" class="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 rounded-lg text-xs font-semibold text-slate-200 border border-slate-700 flex items-center space-x-1.5">
+                    <i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i>
+                    <span>Segarkan</span>
+                </button>
             </div>
-            <button class="btn btn-success" onclick="saveSettings()">💾 Simpan Pengaturan</button>
-        </div>
-    </div>
 
-    <!-- TAB 3: MASTER KERTAS -->
-    <div id="tab-papers" class="tab-content">
-        <div class="card">
-            <div class="card-title">Daftar Jenis Kertas & Harga Jual</div>
-            <table id="tablePapers">
-                <thead>
-                    <tr>
-                        <th>Nama Kertas</th>
-                        <th>Ukuran (mm)</th>
-                        <th>Harga Beli / Pack</th>
-                        <th>Isi / Pack</th>
-                        <th>Jual B/W (Rp)</th>
-                        <th>Jual Warna (Rp)</th>
-                        <th>Duplex +%</th>
-                    </tr>
-                </thead>
-                <tbody></tbody>
-            </table>
-            <div style="margin-top:16px;">
-                <button class="btn btn-success" onclick="savePapers()">💾 Simpan Perubahan Kertas</button>
+            <div id="ordersContainer" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"></div>
+            <div id="ordersEmpty" class="text-center py-16 hidden">
+                <i data-lucide="inbox" class="w-12 h-12 text-slate-600 mx-auto mb-2"></i>
+                <p class="text-sm text-slate-400 font-medium">Belum ada pesanan masuk saat ini.</p>
+                <p class="text-xs text-slate-500 mt-1">Minta pelanggan scan QR Code di meja kasir untuk mengirim file.</p>
             </div>
-        </div>
-    </div>
+        </section>
 
-    <!-- TAB 4: MASTER AKSESORIS -->
-    <div id="tab-accessories" class="tab-content">
-        <div class="card">
-            <div class="card-title">
-                <span>Daftar Aksesoris (Gantungan Kunci, ID Card, Laminasi, Jilid)</span>
-                <button class="btn btn-primary" onclick="addAccessoryRow()">➕ Tambah Aksesoris</button>
+        <!-- ================= TAB 2: MASTER PRINTER ================= -->
+        <section id="tab-printers" class="space-y-4 hidden">
+            <div class="flex items-center justify-between">
+                <h2 class="text-base font-bold text-white">Master Data Printer & Mesin Cetak</h2>
+                <button onclick="openPrinterModal()" class="px-3.5 py-1.5 bg-sky-600 hover:bg-sky-500 text-white rounded-xl text-xs font-bold flex items-center space-x-1.5 shadow-md shadow-sky-600/20">
+                    <i data-lucide="plus" class="w-4 h-4"></i>
+                    <span>Tambah Printer</span>
+                </button>
             </div>
-            <table id="tableAccessories">
-                <thead>
-                    <tr>
-                        <th>Nama Aksesoris</th>
-                        <th>Harga Modal / Beli (Rp)</th>
-                        <th>Harga Jual ke Pelanggan (Rp)</th>
-                        <th>Catatan / Spesifikasi</th>
-                        <th>Aksi</th>
-                    </tr>
-                </thead>
-                <tbody></tbody>
-            </table>
-            <div style="margin-top:16px;">
-                <button class="btn btn-success" onclick="saveAccessories()">💾 Simpan Aksesoris</button>
+            <div id="printerListTable" class="glass-panel rounded-2xl overflow-hidden"></div>
+        </section>
+
+        <!-- ================= TAB 3: KERTAS ================= -->
+        <section id="tab-papers" class="space-y-4 hidden">
+            <div class="flex items-center justify-between">
+                <h2 class="text-base font-bold text-white">Master Data Kertas & Media Cetak</h2>
+                <button onclick="openPaperModal()" class="px-3.5 py-1.5 bg-sky-600 hover:bg-sky-500 text-white rounded-xl text-xs font-bold flex items-center space-x-1.5 shadow-md shadow-sky-600/20">
+                    <i data-lucide="plus" class="w-4 h-4"></i>
+                    <span>Tambah Kertas</span>
+                </button>
             </div>
-        </div>
-    </div>
+            <div id="paperListTable" class="glass-panel rounded-2xl overflow-hidden"></div>
+        </section>
 
-    <!-- TAB 5: MASTER PRESET -->
-    <div id="tab-presets" class="tab-content">
-        <div class="card">
-            <div class="card-title">Preset Ukuran Pas Foto & Paket Otomatis</div>
-            <table id="tablePresets">
-                <thead>
-                    <tr>
-                        <th>Nama Preset</th>
-                        <th>Kategori</th>
-                        <th>Ukuran (P x T mm)</th>
-                        <th>Harga Jual / Pcs (Rp)</th>
-                        <th>Keterangan</th>
-                    </tr>
-                </thead>
-                <tbody></tbody>
-            </table>
-            <div style="margin-top:16px;">
-                <button class="btn btn-success" onclick="savePresets()">💾 Simpan Preset</button>
+        <!-- ================= TAB 4: AKSESORIS ================= -->
+        <section id="tab-accessories" class="space-y-4 hidden">
+            <div class="flex items-center justify-between">
+                <h2 class="text-base font-bold text-white">Master Data Aksesoris & Finishing</h2>
+                <button onclick="openAccessoryModal()" class="px-3.5 py-1.5 bg-sky-600 hover:bg-sky-500 text-white rounded-xl text-xs font-bold flex items-center space-x-1.5 shadow-md shadow-sky-600/20">
+                    <i data-lucide="plus" class="w-4 h-4"></i>
+                    <span>Tambah Aksesoris</span>
+                </button>
             </div>
-        </div>
-    </div>
+            <div id="accessoryListTable" class="glass-panel rounded-2xl overflow-hidden"></div>
+        </section>
 
-    <!-- TAB 6: MASTER PRINTER -->
-    <div id="tab-printers" class="tab-content">
-        <div class="card">
-            <div class="card-title">Daftar Mesin Printer & Kapasitas</div>
-            <table id="tablePrinters">
-                <thead>
-                    <tr>
-                        <th>Nama Printer</th>
-                        <th>Harga Beli Mesin (Rp)</th>
-                        <th>Estimasi Umur Cetak (Lembar)</th>
-                        <th>Daya Listrik (Watt)</th>
-                    </tr>
-                </thead>
-                <tbody></tbody>
-            </table>
-        </div>
-    </div>
-</div>
+        <!-- ================= TAB 5: PRESETS ================= -->
+        <section id="tab-presets" class="space-y-4 hidden">
+            <div class="flex items-center justify-between">
+                <h2 class="text-base font-bold text-white">Master Presets Pas Foto, Foto & Produk Kustom</h2>
+                <button onclick="openPresetModal()" class="px-3.5 py-1.5 bg-sky-600 hover:bg-sky-500 text-white rounded-xl text-xs font-bold flex items-center space-x-1.5 shadow-md shadow-sky-600/20">
+                    <i data-lucide="plus" class="w-4 h-4"></i>
+                    <span>Tambah Preset</span>
+                </button>
+            </div>
+            <div id="presetListTable" class="glass-panel rounded-2xl overflow-hidden"></div>
+        </section>
 
-<script>
-let globalConfig = null;
-
-function showTab(tabId) {
-    document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
-    document.querySelectorAll('.nav-tab').forEach(el => el.classList.remove('active'));
-    document.getElementById(tabId).classList.add('active');
-    event.target.classList.add('active');
-}
-
-async function loadConfig() {
-    const res = await fetch('/api/config');
-    globalConfig = await res.json();
-    renderAll();
-}
-
-function renderAll() {
-    if (!globalConfig) return;
-    
-    // Settings
-    const s = globalConfig.settings || {};
-    document.getElementById('cfgStoreName').value = s.store_name || 'Aydin Print';
-    document.getElementById('cfgElectricity').value = s.electricity_kwh || 1500;
-    document.getElementById('cfgMargin').value = s.default_margin_percent || 40;
-    document.getElementById('cfgMarginType').value = s.margin_type || 'MARKUP';
-    document.getElementById('cfgRoundTo').value = s.round_price_to || 500;
-
-    // Papers
-    const paperBody = document.querySelector('#tablePapers tbody');
-    paperBody.innerHTML = '';
-    (globalConfig.papers || []).forEach((p, idx) => {
-        paperBody.innerHTML += `<tr>
-            <td><input type="text" value="${p.name}" data-idx="${idx}" data-field="name"></td>
-            <td>${p.width_mm} x ${p.height_mm}</td>
-            <td><input type="number" value="${p.pack_price}" data-idx="${idx}" data-field="pack_price"></td>
-            <td><input type="number" value="${p.sheets_per_pack}" data-idx="${idx}" data-field="sheets_per_pack"></td>
-            <td><input type="number" value="${p.base_selling_price_bw}" data-idx="${idx}" data-field="base_selling_price_bw"></td>
-            <td><input type="number" value="${p.base_selling_price_color}" data-idx="${idx}" data-field="base_selling_price_color"></td>
-            <td><input type="number" value="${p.duplex_extra_percent || 80}" data-idx="${idx}" data-field="duplex_extra_percent"></td>
-        </tr>`;
-    });
-
-    // Accessories
-    const accBody = document.querySelector('#tableAccessories tbody');
-    accBody.innerHTML = '';
-    (globalConfig.accessories || []).forEach((a, idx) => {
-        accBody.innerHTML += `<tr>
-            <td><input type="text" value="${a.name}" data-idx="${idx}" data-field="name"></td>
-            <td><input type="number" value="${a.unit_price}" data-idx="${idx}" data-field="unit_price"></td>
-            <td><input type="number" value="${a.selling_price}" data-idx="${idx}" data-field="selling_price"></td>
-            <td><input type="text" value="${a.stock_note || ''}" data-idx="${idx}" data-field="stock_note"></td>
-            <td><button class="btn btn-danger" onclick="deleteAccessory(${idx})">Hapus</button></td>
-        </tr>`;
-    });
-
-    // Presets
-    const presetBody = document.querySelector('#tablePresets tbody');
-    presetBody.innerHTML = '';
-    (globalConfig.presets || []).forEach((pr, idx) => {
-        presetBody.innerHTML += `<tr>
-            <td><input type="text" value="${pr.name}" data-idx="${idx}" data-field="name"></td>
-            <td>${pr.category}</td>
-            <td>${pr.photo_width_mm} x ${pr.photo_height_mm}</td>
-            <td><input type="number" value="${pr.price_per_pcs || pr.suggested_price || 0}" data-idx="${idx}" data-field="price_per_pcs"></td>
-            <td><input type="text" value="${pr.description || ''}" data-idx="${idx}" data-field="description"></td>
-        </tr>`;
-    });
-
-    // Printers
-    const printBody = document.querySelector('#tablePrinters tbody');
-    printBody.innerHTML = '';
-    (globalConfig.printers || []).forEach((pr) => {
-        printBody.innerHTML += `<tr>
-            <td><b>${pr.name}</b></td>
-            <td>Rp ${(pr.purchase_price || 0).toLocaleString()}</td>
-            <td>${(pr.page_capacity || 0).toLocaleString()} lembar</td>
-            <td>${pr.watt} Watt</td>
-        </tr>`;
-    });
-}
-
-function addAccessoryRow() {
-    if (!globalConfig.accessories) globalConfig.accessories = [];
-    globalConfig.accessories.push({
-        id: Date.now(),
-        name: "Aksesoris Baru",
-        unit_price: 1000,
-        selling_price: 3000,
-        stock_note: ""
-    });
-    renderAll();
-}
-
-function deleteAccessory(idx) {
-    globalConfig.accessories.splice(idx, 1);
-    renderAll();
-}
-
-async function saveSettings() {
-    globalConfig.settings.store_name = document.getElementById('cfgStoreName').value;
-    globalConfig.settings.electricity_kwh = parseFloat(document.getElementById('cfgElectricity').value) || 1500;
-    globalConfig.settings.default_margin_percent = parseFloat(document.getElementById('cfgMargin').value) || 40;
-    globalConfig.settings.margin_type = document.getElementById('cfgMarginType').value;
-    globalConfig.settings.round_price_to = parseInt(document.getElementById('cfgRoundTo').value) || 500;
-    await pushConfig();
-}
-
-async function savePapers() {
-    document.querySelectorAll('#tablePapers tbody tr').forEach((tr, idx) => {
-        tr.querySelectorAll('input').forEach(inp => {
-            const f = inp.getAttribute('data-field');
-            if (f === 'name') globalConfig.papers[idx][f] = inp.value;
-            else globalConfig.papers[idx][f] = parseFloat(inp.value) || 0;
-        });
-    });
-    await pushConfig();
-}
-
-async function saveAccessories() {
-    document.querySelectorAll('#tableAccessories tbody tr').forEach((tr, idx) => {
-        tr.querySelectorAll('input').forEach(inp => {
-            const f = inp.getAttribute('data-field');
-            if (f === 'name' || f === 'stock_note') globalConfig.accessories[idx][f] = inp.value;
-            else globalConfig.accessories[idx][f] = parseFloat(inp.value) || 0;
-        });
-    });
-    await pushConfig();
-}
-
-async function savePresets() {
-    document.querySelectorAll('#tablePresets tbody tr').forEach((tr, idx) => {
-        tr.querySelectorAll('input').forEach(inp => {
-            const f = inp.getAttribute('data-field');
-            if (f === 'name' || f === 'description') globalConfig.presets[idx][f] = inp.value;
-            else if (f === 'price_per_pcs') {
-                globalConfig.presets[idx]['price_per_pcs'] = parseFloat(inp.value) || 0;
-                globalConfig.presets[idx]['suggested_price'] = parseFloat(inp.value) || 0;
-            }
-        });
-    });
-    await pushConfig();
-}
-
-async function pushConfig() {
-    const res = await fetch('/api/config', {
-        method: 'POST',
-        headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify(globalConfig)
-    });
-    const data = await res.json();
-    alert(data.message || 'Berhasil disimpan!');
-    loadConfig();
-}
-
-async function loadOrders() {
-    const box = document.getElementById('ordersList');
-    box.innerHTML = 'Memuat...';
-    try {
-        const res = await fetch('/api/orders');
-        const orders = await res.json();
-        if (orders.length === 0) {
-            box.innerHTML = '<p style="color:var(--text-muted); text-align:center; padding:30px;">Belum ada pesanan masuk.</p>';
-            return;
-        }
-        let html = '';
-        orders.forEach(o => {
-            html += `<div class="order-card">
-                <div class="order-info">
-                    <h3>${o.nama} <span class="badge badge-info">${o.mode === 'photo_custom' ? 'Foto / Preset' : 'Dokumen'}</span></h3>
-                    <div class="order-meta">
-                        <span>⏰ ${o.timestamp}</span>
-                        <span>📄 ${o.quantity} ${o.mode === 'photo_custom' ? 'pcs' : 'lbr'} (${o.paper_name})</span>
-                        ${o.accessory_name ? '<span>🎁 ' + o.accessory_name + '</span>' : ''}
-                        ${o.duplex ? '<span>🔄 Bolak-Balik</span>' : ''}
-                        <span style="color:#4ade80; font-weight:bold;">💰 Rp ${o.total_price.toLocaleString()}</span>
-                    </div>
-                    ${o.catatan ? '<div style="font-size:12px; color:#cbd5e1; margin-top:4px;">📝 Catatan: ' + o.catatan + '</div>' : ''}
+        <!-- ================= TAB 6: SETTINGS TOKO ================= -->
+        <section id="tab-settings" class="space-y-4 hidden">
+            <h2 class="text-base font-bold text-white">Pengaturan Umum Toko & HPP Calculator</h2>
+            <div class="glass-panel p-6 rounded-2xl max-w-2xl space-y-4">
+                <div>
+                    <label class="block text-xs font-bold text-slate-300 mb-1">Nama Usaha / Toko</label>
+                    <input type="text" id="cfgStoreName" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3.5 py-2.5 text-sm text-white focus:border-sky-500 focus:outline-none">
                 </div>
                 <div>
-                    ${o.generated_pdf ? '<a class="btn btn-success" href="/download/' + o.folder + '/' + o.generated_pdf + '" target="_blank">🖨️ Cetak PDF Hasil</a>' : ''}
+                    <label class="block text-xs font-bold text-slate-300 mb-1">PIN Rahasia Kasir (Untuk Buka Panel dari HP Kasir)</label>
+                    <input type="text" id="cfgAdminPin" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3.5 py-2.5 text-sm font-mono text-amber-400 focus:border-sky-500 focus:outline-none">
                 </div>
-            </div>`;
-        });
-        box.innerHTML = html;
-    } catch (e) {
-        box.innerHTML = 'Gagal memuat daftar pesanan.';
-    }
-}
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-xs font-bold text-slate-300 mb-1">Tarif Listrik (Rp/kWh)</label>
+                        <input type="number" id="cfgElectricityKwh" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3.5 py-2.5 text-sm text-white focus:border-sky-500 focus:outline-none">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold text-slate-300 mb-1">Default Margin Keuntungan (%)</label>
+                        <input type="number" id="cfgMarginPct" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3.5 py-2.5 text-sm text-white focus:border-sky-500 focus:outline-none">
+                    </div>
+                </div>
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-xs font-bold text-slate-300 mb-1">Minimal Laba per Lembar (Rp)</label>
+                        <input type="number" id="cfgProfitPerSheetMin" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3.5 py-2.5 text-sm text-white focus:border-sky-500 focus:outline-none">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold text-slate-300 mb-1">Pembulatan Harga (Rp)</label>
+                        <input type="number" id="cfgRoundTo" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3.5 py-2.5 text-sm text-white focus:border-sky-500 focus:outline-none">
+                    </div>
+                </div>
+                <button onclick="saveStoreSettings()" class="py-3 px-6 bg-sky-600 hover:bg-sky-500 text-white font-bold text-sm rounded-xl transition shadow-lg shadow-sky-600/20">Simpan Pengaturan</button>
+            </div>
+        </section>
 
-loadConfig();
-loadOrders();
-setInterval(loadOrders, 10000);
-</script>
+    </main>
+
+    <!-- Modal Form (Printer, Paper, Accessory, Preset) -->
+    <div id="adminModal" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+        <div class="glass-panel max-w-md w-full p-6 rounded-2xl space-y-4 border border-slate-700">
+            <h3 id="modalTitle" class="text-base font-bold text-white">Form Input</h3>
+            <div id="modalBody" class="space-y-3 max-h-[70vh] overflow-y-auto pr-1"></div>
+            <div class="flex justify-end space-x-2 pt-2 border-t border-slate-800">
+                <button onclick="closeModal()" class="px-4 py-2 rounded-xl bg-slate-800 text-slate-300 text-xs font-semibold hover:bg-slate-700">Batal</button>
+                <button id="modalSaveBtn" class="px-5 py-2 rounded-xl bg-sky-600 text-white text-xs font-bold hover:bg-sky-500">Simpan Data</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script>
+        lucide.createIcons();
+
+        let dbConfig = {};
+        let previousOrderIds = new Set();
+        let audioEnabled = true;
+
+        async function submitPin(e) {
+            e.preventDefault();
+            const pin = document.getElementById('inputPin').value;
+            const res = await fetch('/api/admin/login', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ pin: pin })
+            });
+            if (res.ok) {
+                document.getElementById('lockScreen').classList.add('hidden');
+                loadConfig();
+                fetchOrders();
+            } else {
+                document.getElementById('pinError').classList.remove('hidden');
+            }
+        }
+
+        async function logoutAdmin() {
+            await fetch('/api/admin/logout', { method: 'POST' });
+            window.location.reload();
+        }
+
+        function playBeep() {
+            if (!audioEnabled) return;
+            try {
+                const ctx = new (window.AudioContext || window.webkitAudioContext)();
+                const osc = ctx.createOscillator();
+                const gain = ctx.createGain();
+                osc.connect(gain);
+                gain.connect(ctx.destination);
+                osc.type = "sine";
+                osc.frequency.setValueAtTime(880, ctx.currentTime);
+                gain.gain.setValueAtTime(0.3, ctx.currentTime);
+                osc.start();
+                osc.stop(ctx.currentTime + 0.35);
+            } catch (e) {
+                console.log("Audio play error", e);
+            }
+        }
+
+        function toggleAudio() {
+            audioEnabled = !audioEnabled;
+            const btn = document.getElementById('btnAudio');
+            const txt = document.getElementById('audioStatusText');
+            if (audioEnabled) {
+                btn.className = "px-3 py-1.5 rounded-lg border border-slate-700 bg-slate-800 text-xs font-semibold text-emerald-400 flex items-center space-x-1.5 transition hover:bg-slate-700";
+                txt.innerText = "Suara Notifikasi: ON";
+            } else {
+                btn.className = "px-3 py-1.5 rounded-lg border border-slate-700 bg-slate-800 text-xs font-semibold text-slate-500 flex items-center space-x-1.5 transition hover:bg-slate-700";
+                txt.innerText = "Suara Notifikasi: OFF";
+            }
+        }
+
+        function switchTab(tabKey) {
+            document.querySelectorAll('.tab-btn').forEach(btn => {
+                btn.className = 'tab-btn px-4 py-2 rounded-lg text-sm font-semibold transition text-slate-400 hover:text-white flex items-center space-x-2';
+            });
+            document.getElementById('tabBtn-' + tabKey).className = 'tab-btn px-4 py-2 rounded-lg text-sm font-semibold transition bg-sky-600 text-white flex items-center space-x-2';
+
+            ['orders', 'printers', 'papers', 'accessories', 'presets', 'settings'].forEach(k => {
+                const el = document.getElementById('tab-' + k);
+                if (el) {
+                    if (k === tabKey) el.classList.remove('hidden');
+                    else el.classList.add('hidden');
+                }
+            });
+        }
+
+        async function loadConfig() {
+            try {
+                const res = await fetch('/api/config');
+                if (res.ok) {
+                    dbConfig = await res.json();
+                    renderPrinters();
+                    renderPapers();
+                    renderAccessories();
+                    renderPresets();
+                    renderSettings();
+                }
+            } catch (e) {
+                console.error("Failed to load config:", e);
+            }
+        }
+
+        async function fetchOrders() {
+            try {
+                const res = await fetch('/api/orders');
+                if (res.ok) {
+                    const orders = await res.json();
+                    document.getElementById('badgeOrderCount').innerText = orders.length;
+                    renderOrders(orders);
+                }
+            } catch (e) {
+                console.error("Failed to fetch orders:", e);
+            }
+        }
+
+        function renderOrders(orders) {
+            const container = document.getElementById('ordersContainer');
+            const emptyEl = document.getElementById('ordersEmpty');
+            container.innerHTML = '';
+
+            if (orders.length === 0) {
+                emptyEl.classList.remove('hidden');
+                return;
+            }
+            emptyEl.classList.add('hidden');
+
+            let hasNew = false;
+            orders.forEach(order => {
+                if (!previousOrderIds.has(order.folder)) {
+                    hasNew = true;
+                    previousOrderIds.add(order.folder);
+                }
+
+                const card = document.createElement('div');
+                card.className = 'glass-panel p-5 rounded-2xl space-y-3 relative overflow-hidden border border-slate-800';
+
+                const isPhoto = order.mode === 'photo_custom';
+                const statusColor = order.status === 'Selesai' ? 'text-emerald-400 bg-emerald-950/60 border-emerald-500/30' : 'text-amber-400 bg-amber-950/60 border-amber-500/30';
+
+                let pdfActionBtn = '';
+                if (order.generated_pdf) {
+                    pdfActionBtn = '<a href="/download/' + order.folder + '/' + order.generated_pdf + '" target="_blank" class="w-full py-2.5 px-3 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white rounded-xl text-xs font-bold text-center flex items-center justify-center space-x-1.5 shadow-md shadow-emerald-900/30">' +
+                        '<i data-lucide="printer" class="w-4 h-4"></i><span>Cetak PDF Siap Print</span></a>';
+                }
+
+                let filesHtml = '<div class="space-y-1">';
+                (order.files || []).forEach(f => {
+                    filesHtml += '<div class="text-[11px] text-slate-300 flex items-center justify-between bg-slate-900/60 px-2.5 py-1.5 rounded-lg">' +
+                        '<span class="truncate max-w-[170px]">' + f + '</span>' +
+                        '<a href="/download/' + order.folder + '/' + f + '" download class="text-sky-400 hover:underline">Unduh</a>' +
+                    '</div>';
+                });
+                filesHtml += '</div>';
+
+                card.innerHTML = 
+                    '<div class="flex items-start justify-between">' +
+                        '<div>' +
+                            '<h3 class="text-base font-bold text-white flex items-center space-x-1.5">' +
+                                '<i data-lucide="user" class="w-4 h-4 text-sky-400"></i>' +
+                                '<span>' + order.nama + '</span>' +
+                            '</h3>' +
+                            '<p class="text-[11px] text-slate-400">' + (order.created_at || order.timestamp) + '</p>' +
+                        '</div>' +
+                        '<span class="px-2.5 py-1 rounded-full text-[10px] font-bold border ' + statusColor + '">' + (order.status || 'Pending') + '</span>' +
+                    '</div>' +
+                    '<div class="text-xs text-slate-300 space-y-1 bg-slate-900/50 p-3 rounded-xl border border-slate-800/80">' +
+                        '<div class="flex justify-between"><span class="text-slate-400">Tipe Cetak:</span><span class="font-semibold text-white">' + (isPhoto ? '📸 Foto / Studio' : '📄 Dokumen') + '</span></div>' +
+                        '<div class="flex justify-between"><span class="text-slate-400">Jumlah / Qty:</span><span class="font-semibold text-white">' + order.quantity + ' pcs/copy</span></div>' +
+                        '<div class="flex justify-between"><span class="text-slate-400">Kertas:</span><span>' + order.paper_name + '</span></div>' +
+                        (order.accessory_name ? '<div class="flex justify-between"><span class="text-slate-400">Aksesoris:</span><span class="text-amber-400 font-medium">' + order.accessory_name + '</span></div>' : '') +
+                        '<div class="flex justify-between pt-1 border-t border-slate-800 font-bold text-white"><span>Total Tagihan:</span><span class="text-emerald-400 text-sm">Rp ' + Number(order.total_price || 0).toLocaleString('id-ID') + '</span></div>' +
+                    '</div>' +
+                    (order.catatan ? '<div class="text-[11px] bg-amber-500/10 text-amber-300 p-2 rounded-lg border border-amber-500/20"><b>Catatan:</b> ' + order.catatan + '</div>' : '') +
+                    filesHtml +
+                    pdfActionBtn +
+                    '<div class="flex items-center justify-between pt-2 border-t border-slate-800">' +
+                        '<button onclick="toggleOrderStatus(\'' + order.folder + '\', \'' + (order.status === 'Selesai' ? 'Pending' : 'Selesai') + '\')" class="text-xs text-slate-400 hover:text-white">' +
+                            (order.status === 'Selesai' ? 'Tandai Pending' : '✅ Selesai') +
+                        '</button>' +
+                        '<button onclick="deleteOrder(\'' + order.folder + '\')" class="text-xs text-rose-400 hover:text-rose-300">Hapus</button>' +
+                    '</div>';
+
+                container.appendChild(card);
+            });
+
+            lucide.createIcons();
+            if (hasNew && previousOrderIds.size > orders.length) playBeep();
+        }
+
+        async function toggleOrderStatus(folder, newStatus) {
+            await fetch('/api/order/status', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ folder: folder, status: newStatus })
+            });
+            fetchOrders();
+        }
+
+        async function deleteOrder(folder) {
+            if (!confirm("Hapus pesanan ini beserta filenya?")) return;
+            await fetch('/api/order/delete', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ folder: folder })
+            });
+            previousOrderIds.delete(folder);
+            fetchOrders();
+        }
+
+        // ================= MASTER DATA TABLES & MODALS =================
+
+        function renderPrinters() {
+            const wrap = document.getElementById('printerListTable');
+            let html = '<table class="w-full text-left text-xs text-slate-300"><thead class="bg-slate-900/80 text-slate-400 font-semibold border-b border-slate-800"><tr><th class="p-3">Nama Printer</th><th class="p-3">Harga Beli</th><th class="p-3">Kapasitas</th><th class="p-3">Watt</th><th class="p-3">Duplex</th><th class="p-3">Aksi</th></tr></thead><tbody>';
+            (dbConfig.printers || []).forEach(p => {
+                html += '<tr class="border-b border-slate-800/60 hover:bg-slate-900/40">' +
+                    '<td class="p-3 font-bold text-white">' + p.name + (p.is_default ? ' <span class="text-[10px] bg-sky-500/20 text-sky-400 px-1.5 py-0.5 rounded ml-1">Default</span>' : '') + '</td>' +
+                    '<td class="p-3">Rp ' + Number(p.purchase_price).toLocaleString('id-ID') + '</td>' +
+                    '<td class="p-3">' + p.page_capacity.toLocaleString() + ' hal</td>' +
+                    '<td class="p-3">' + p.watt + ' W</td>' +
+                    '<td class="p-3">' + (p.supports_duplex ? 'Ya' : 'Tidak') + '</td>' +
+                    '<td class="p-3"><button onclick="editPrinter(' + p.id + ')" class="text-sky-400 hover:underline">Edit</button></td>' +
+                '</tr>';
+            });
+            html += '</tbody></table>';
+            wrap.innerHTML = html;
+        }
+
+        function openPrinterModal(p = null) {
+            document.getElementById('modalTitle').innerText = p ? "Edit Printer" : "Tambah Printer Baru";
+            document.getElementById('modalBody').innerHTML = 
+                '<input type="hidden" id="pId" value="' + (p ? p.id : '') + '">' +
+                '<div><label class="block text-xs text-slate-400 mb-1">Nama Mesin Printer</label><input type="text" id="pName" value="' + (p ? p.name : '') + '" class="w-full bg-slate-900 border border-slate-700 rounded-lg p-2 text-xs text-white" required></div>' +
+                '<div class="grid grid-cols-2 gap-2">' +
+                    '<div><label class="block text-xs text-slate-400 mb-1">Harga Beli (Rp)</label><input type="number" id="pPrice" value="' + (p ? p.purchase_price : 3200000) + '" class="w-full bg-slate-900 border border-slate-700 rounded-lg p-2 text-xs text-white"></div>' +
+                    '<div><label class="block text-xs text-slate-400 mb-1">Kapasitas (Hal)</label><input type="number" id="pCap" value="' + (p ? p.page_capacity : 50000) + '" class="w-full bg-slate-900 border border-slate-700 rounded-lg p-2 text-xs text-white"></div>' +
+                '</div>' +
+                '<div class="grid grid-cols-2 gap-2">' +
+                    '<div><label class="block text-xs text-slate-400 mb-1">Daya Listrik (Watt)</label><input type="number" id="pWatt" value="' + (p ? p.watt : 16) + '" class="w-full bg-slate-900 border border-slate-700 rounded-lg p-2 text-xs text-white"></div>' +
+                    '<div><label class="block text-xs text-slate-400 mb-1">Dukung Duplex?</label><select id="pDuplex" class="w-full bg-slate-900 border border-slate-700 rounded-lg p-2 text-xs text-white"><option value="true" ' + (p && p.supports_duplex ? 'selected' : '') + '>Ya</option><option value="false" ' + (p && !p.supports_duplex ? 'selected' : '') + '>Tidak</option></select></div>' +
+                '</div>' +
+                '<div><label class="flex items-center space-x-2 text-xs text-slate-300"><input type="checkbox" id="pDefault" ' + (p && p.is_default ? 'checked' : '') + ' class="rounded"><span>Jadikan Printer Utama (Default)</span></label></div>';
+
+            document.getElementById('modalSaveBtn').onclick = async () => {
+                const idVal = document.getElementById('pId').value;
+                const body = {
+                    id: idVal ? parseInt(idVal) : undefined,
+                    name: document.getElementById('pName').value,
+                    purchase_price: parseFloat(document.getElementById('pPrice').value),
+                    page_capacity: parseInt(document.getElementById('pCap').value),
+                    watt: parseFloat(document.getElementById('pWatt').value),
+                    supports_duplex: document.getElementById('pDuplex').value === 'true',
+                    is_default: document.getElementById('pDefault').checked
+                };
+                await fetch('/api/admin/printer/save', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+                closeModal();
+                loadConfig();
+            };
+            document.getElementById('adminModal').classList.remove('hidden');
+        }
+
+        function editPrinter(id) {
+            const p = (dbConfig.printers || []).find(x => x.id === id);
+            if (p) openPrinterModal(p);
+        }
+
+        function renderPapers() {
+            const wrap = document.getElementById('paperListTable');
+            let html = '<table class="w-full text-left text-xs text-slate-300"><thead class="bg-slate-900/80 text-slate-400 font-semibold border-b border-slate-800"><tr><th class="p-3">Nama Kertas</th><th class="p-3">Ukuran (mm)</th><th class="p-3">Harga Pack</th><th class="p-3">Isi Pack</th><th class="p-3">Jual B/W</th><th class="p-3">Jual Warna</th><th class="p-3">Aksi</th></tr></thead><tbody>';
+            (dbConfig.papers || []).forEach(p => {
+                html += '<tr class="border-b border-slate-800/60 hover:bg-slate-900/40">' +
+                    '<td class="p-3 font-bold text-white">' + p.name + '</td>' +
+                    '<td class="p-3">' + p.width_mm + ' x ' + p.height_mm + ' mm</td>' +
+                    '<td class="p-3">Rp ' + Number(p.pack_price).toLocaleString('id-ID') + '</td>' +
+                    '<td class="p-3">' + p.sheets_per_pack + ' lbr</td>' +
+                    '<td class="p-3">Rp ' + Number(p.base_selling_price_bw || 0).toLocaleString('id-ID') + '</td>' +
+                    '<td class="p-3 text-emerald-400 font-semibold">Rp ' + Number(p.base_selling_price_color || 0).toLocaleString('id-ID') + '</td>' +
+                    '<td class="p-3"><button onclick="editPaper(' + p.id + ')" class="text-sky-400 hover:underline">Edit</button></td>' +
+                '</tr>';
+            });
+            html += '</tbody></table>';
+            wrap.innerHTML = html;
+        }
+
+        function openPaperModal(p = null) {
+            document.getElementById('modalTitle').innerText = p ? "Edit Kertas" : "Tambah Kertas Baru";
+            document.getElementById('modalBody').innerHTML = 
+                '<input type="hidden" id="papId" value="' + (p ? p.id : '') + '">' +
+                '<div><label class="block text-xs text-slate-400 mb-1">Nama Kertas</label><input type="text" id="papName" value="' + (p ? p.name : '') + '" class="w-full bg-slate-900 border border-slate-700 rounded-lg p-2 text-xs text-white" required></div>' +
+                '<div class="grid grid-cols-2 gap-2">' +
+                    '<div><label class="block text-xs text-slate-400 mb-1">Lebar (mm)</label><input type="number" id="papW" value="' + (p ? p.width_mm : 210) + '" class="w-full bg-slate-900 border border-slate-700 rounded-lg p-2 text-xs text-white"></div>' +
+                    '<div><label class="block text-xs text-slate-400 mb-1">Tinggi (mm)</label><input type="number" id="papH" value="' + (p ? p.height_mm : 297) + '" class="w-full bg-slate-900 border border-slate-700 rounded-lg p-2 text-xs text-white"></div>' +
+                '</div>' +
+                '<div class="grid grid-cols-2 gap-2">' +
+                    '<div><label class="block text-xs text-slate-400 mb-1">Harga Pack (Rp)</label><input type="number" id="papPackPrice" value="' + (p ? p.pack_price : 45000) + '" class="w-full bg-slate-900 border border-slate-700 rounded-lg p-2 text-xs text-white"></div>' +
+                    '<div><label class="block text-xs text-slate-400 mb-1">Isi per Pack</label><input type="number" id="papSheets" value="' + (p ? p.sheets_per_pack : 500) + '" class="w-full bg-slate-900 border border-slate-700 rounded-lg p-2 text-xs text-white"></div>' +
+                '</div>' +
+                '<div class="grid grid-cols-2 gap-2">' +
+                    '<div><label class="block text-xs text-slate-400 mb-1">Harga Jual B/W (Rp)</label><input type="number" id="papBw" value="' + (p ? p.base_selling_price_bw : 500) + '" class="w-full bg-slate-900 border border-slate-700 rounded-lg p-2 text-xs text-white"></div>' +
+                    '<div><label class="block text-xs text-slate-400 mb-1">Harga Jual Warna (Rp)</label><input type="number" id="papCol" value="' + (p ? p.base_selling_price_color : 1000) + '" class="w-full bg-slate-900 border border-slate-700 rounded-lg p-2 text-xs text-white"></div>' +
+                '</div>';
+
+            document.getElementById('modalSaveBtn').onclick = async () => {
+                const idVal = document.getElementById('papId').value;
+                const body = {
+                    id: idVal ? parseInt(idVal) : undefined,
+                    name: document.getElementById('papName').value,
+                    size: "Custom",
+                    width_mm: parseFloat(document.getElementById('papW').value),
+                    height_mm: parseFloat(document.getElementById('papH').value),
+                    pack_price: parseFloat(document.getElementById('papPackPrice').value),
+                    sheets_per_pack: parseInt(document.getElementById('papSheets').value),
+                    base_selling_price_bw: parseFloat(document.getElementById('papBw').value),
+                    base_selling_price_color: parseFloat(document.getElementById('papCol').value),
+                    duplex_extra_percent: 80
+                };
+                await fetch('/api/admin/paper/save', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+                closeModal();
+                loadConfig();
+            };
+            document.getElementById('adminModal').classList.remove('hidden');
+        }
+
+        function editPaper(id) {
+            const p = (dbConfig.papers || []).find(x => x.id === id);
+            if (p) openPaperModal(p);
+        }
+
+        function renderAccessories() {
+            const wrap = document.getElementById('accessoryListTable');
+            let html = '<table class="w-full text-left text-xs text-slate-300"><thead class="bg-slate-900/80 text-slate-400 font-semibold border-b border-slate-800"><tr><th class="p-3">Nama Aksesoris</th><th class="p-3">Harga Modal</th><th class="p-3">Harga Jual</th><th class="p-3">Margin/Laba</th><th class="p-3">Aksi</th></tr></thead><tbody>';
+            (dbConfig.accessories || []).forEach(a => {
+                const profit = (a.selling_price || 0) - (a.unit_price || 0);
+                html += '<tr class="border-b border-slate-800/60 hover:bg-slate-900/40">' +
+                    '<td class="p-3 font-bold text-white">' + a.name + '</td>' +
+                    '<td class="p-3">Rp ' + Number(a.unit_price).toLocaleString('id-ID') + '</td>' +
+                    '<td class="p-3 text-emerald-400 font-bold">Rp ' + Number(a.selling_price).toLocaleString('id-ID') + '</td>' +
+                    '<td class="p-3 text-sky-400">+Rp ' + Number(profit).toLocaleString('id-ID') + '</td>' +
+                    '<td class="p-3"><button onclick="editAccessory(' + a.id + ')" class="text-sky-400 hover:underline">Edit</button></td>' +
+                '</tr>';
+            });
+            html += '</tbody></table>';
+            wrap.innerHTML = html;
+        }
+
+        function openAccessoryModal(a = null) {
+            document.getElementById('modalTitle').innerText = a ? "Edit Aksesoris" : "Tambah Aksesoris";
+            document.getElementById('modalBody').innerHTML = 
+                '<input type="hidden" id="accId" value="' + (a ? a.id : '') + '">' +
+                '<div><label class="block text-xs text-slate-400 mb-1">Nama Aksesoris / Finishing</label><input type="text" id="accName" value="' + (a ? a.name : '') + '" class="w-full bg-slate-900 border border-slate-700 rounded-lg p-2 text-xs text-white" required></div>' +
+                '<div class="grid grid-cols-2 gap-2">' +
+                    '<div><label class="block text-xs text-slate-400 mb-1">Harga Modal / Beli (Rp)</label><input type="number" id="accCost" value="' + (a ? a.unit_price : 2000) + '" class="w-full bg-slate-900 border border-slate-700 rounded-lg p-2 text-xs text-white"></div>' +
+                    '<div><label class="block text-xs text-slate-400 mb-1">Harga Jual Toko (Rp)</label><input type="number" id="accSell" value="' + (a ? a.selling_price : 5000) + '" class="w-full bg-slate-900 border border-slate-700 rounded-lg p-2 text-xs text-white"></div>' +
+                '</div>' +
+                '<div><label class="block text-xs text-slate-400 mb-1">Catatan Stok / Bahan</label><input type="text" id="accNote" value="' + (a ? (a.stock_note || '') : '') + '" class="w-full bg-slate-900 border border-slate-700 rounded-lg p-2 text-xs text-white"></div>';
+
+            document.getElementById('modalSaveBtn').onclick = async () => {
+                const idVal = document.getElementById('accId').value;
+                const body = {
+                    id: idVal ? parseInt(idVal) : undefined,
+                    name: document.getElementById('accName').value,
+                    unit_price: parseFloat(document.getElementById('accCost').value),
+                    selling_price: parseFloat(document.getElementById('accSell').value),
+                    stock_note: document.getElementById('accNote').value
+                };
+                await fetch('/api/admin/accessory/save', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+                closeModal();
+                loadConfig();
+            };
+            document.getElementById('adminModal').classList.remove('hidden');
+        }
+
+        function editAccessory(id) {
+            const a = (dbConfig.accessories || []).find(x => x.id === id);
+            if (a) openAccessoryModal(a);
+        }
+
+        function renderPresets() {
+            const wrap = document.getElementById('presetListTable');
+            let html = '<table class="w-full text-left text-xs text-slate-300"><thead class="bg-slate-900/80 text-slate-400 font-semibold border-b border-slate-800"><tr><th class="p-3">Nama Preset</th><th class="p-3">Kategori</th><th class="p-3">Dimensi</th><th class="p-3">Harga Jual</th><th class="p-3">Laba/pcs</th><th class="p-3">Aksi</th></tr></thead><tbody>';
+            (dbConfig.presets || []).forEach(pr => {
+                html += '<tr class="border-b border-slate-800/60 hover:bg-slate-900/40">' +
+                    '<td class="p-3 font-bold text-white">' + pr.name + '</td>' +
+                    '<td class="p-3 text-slate-400">' + (pr.category || '-') + '</td>' +
+                    '<td class="p-3 text-sky-400 font-semibold">' + pr.photo_width_mm + ' x ' + pr.photo_height_mm + ' mm</td>' +
+                    '<td class="p-3 text-emerald-400 font-bold">Rp ' + Number(pr.price_per_pcs || pr.suggested_price || 0).toLocaleString('id-ID') + '</td>' +
+                    '<td class="p-3 text-sky-300 font-medium">+Rp ' + Number(pr.profit_per_unit || 0).toLocaleString('id-ID') + '</td>' +
+                    '<td class="p-3"><button onclick="editPreset(\'' + pr.id + '\')" class="text-sky-400 hover:underline">Edit</button></td>' +
+                '</tr>';
+            });
+            html += '</tbody></table>';
+            wrap.innerHTML = html;
+        }
+
+        function openPresetModal(pr = null) {
+            document.getElementById('modalTitle').innerText = pr ? "Edit Preset Produk" : "Tambah Preset Baru";
+            document.getElementById('modalBody').innerHTML = 
+                '<input type="hidden" id="preId" value="' + (pr ? pr.id : '') + '">' +
+                '<div><label class="block text-xs text-slate-400 mb-1">Nama Preset / Paket</label><input type="text" id="preName" value="' + (pr ? pr.name : '') + '" class="w-full bg-slate-900 border border-slate-700 rounded-lg p-2 text-xs text-white" required></div>' +
+                '<div class="grid grid-cols-2 gap-2">' +
+                    '<div><label class="block text-xs text-slate-400 mb-1">Lebar Foto (mm)</label><input type="number" id="preW" value="' + (pr ? pr.photo_width_mm : 28) + '" class="w-full bg-slate-900 border border-slate-700 rounded-lg p-2 text-xs text-white"></div>' +
+                    '<div><label class="block text-xs text-slate-400 mb-1">Tinggi Foto (mm)</label><input type="number" id="preH" value="' + (pr ? pr.photo_height_mm : 38) + '" class="w-full bg-slate-900 border border-slate-700 rounded-lg p-2 text-xs text-white"></div>' +
+                '</div>' +
+                '<div class="grid grid-cols-2 gap-2">' +
+                    '<div><label class="block text-xs text-slate-400 mb-1">Harga Jual per Pcs (Rp)</label><input type="number" id="prePrice" value="' + (pr ? (pr.price_per_pcs || pr.suggested_price || 1500) : 1500) + '" class="w-full bg-slate-900 border border-slate-700 rounded-lg p-2 text-xs text-white"></div>' +
+                    '<div><label class="block text-xs text-slate-400 mb-1">Target Laba per Pcs (Rp)</label><input type="number" id="preProfit" value="' + (pr ? (pr.profit_per_unit || 800) : 800) + '" class="w-full bg-slate-900 border border-slate-700 rounded-lg p-2 text-xs text-white"></div>' +
+                '</div>' +
+                '<div><label class="block text-xs text-slate-400 mb-1">Deskripsi Ringkas</label><input type="text" id="preDesc" value="' + (pr ? (pr.description || '') : '') + '" class="w-full bg-slate-900 border border-slate-700 rounded-lg p-2 text-xs text-white"></div>';
+
+            document.getElementById('modalSaveBtn').onclick = async () => {
+                const idVal = document.getElementById('preId').value;
+                const body = {
+                    id: idVal || undefined,
+                    name: document.getElementById('preName').value,
+                    category: "Pas Foto / Kustom",
+                    photo_width_mm: parseFloat(document.getElementById('preW').value),
+                    photo_height_mm: parseFloat(document.getElementById('preH').value),
+                    paper_id: 3,
+                    price_per_pcs: parseFloat(document.getElementById('prePrice').value),
+                    profit_per_unit: parseFloat(document.getElementById('preProfit').value),
+                    description: document.getElementById('preDesc').value
+                };
+                await fetch('/api/admin/preset/save', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+                closeModal();
+                loadConfig();
+            };
+            document.getElementById('adminModal').classList.remove('hidden');
+        }
+
+        function editPreset(id) {
+            const pr = (dbConfig.presets || []).find(x => x.id === id);
+            if (pr) openPresetModal(pr);
+        }
+
+        function renderSettings() {
+            const s = dbConfig.settings || {};
+            document.getElementById('cfgStoreName').value = s.store_name || 'Aydin Print';
+            document.getElementById('cfgAdminPin').value = s.admin_pin || '1234';
+            document.getElementById('cfgElectricityKwh').value = s.electricity_kwh || 1500;
+            document.getElementById('cfgMarginPct').value = s.default_margin_percent || 40;
+            document.getElementById('cfgProfitPerSheetMin').value = s.profit_per_sheet_min || 500;
+            document.getElementById('cfgRoundTo').value = s.round_price_to || 500;
+        }
+
+        async function saveStoreSettings() {
+            dbConfig.settings = {
+                store_name: document.getElementById('cfgStoreName').value,
+                tagline: 'Percetakan, Fotocopy & Studio Pas Foto',
+                admin_pin: document.getElementById('cfgAdminPin').value,
+                allow_remote_admin_with_pin: true,
+                electricity_kwh: parseFloat(document.getElementById('cfgElectricityKwh').value),
+                default_margin_percent: parseFloat(document.getElementById('cfgMarginPct').value),
+                margin_type: 'MARKUP',
+                profit_per_sheet_min: parseFloat(document.getElementById('cfgProfitPerSheetMin').value),
+                round_price_to: parseInt(document.getElementById('cfgRoundTo').value)
+            };
+            const res = await fetch('/api/config', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(dbConfig)
+            });
+            if (res.ok) alert("Pengaturan toko & HPP berhasil disimpan!");
+        }
+
+        function closeModal() {
+            document.getElementById('adminModal').classList.add('hidden');
+        }
+
+        // Init
+        window.addEventListener('DOMContentLoaded', () => {
+            loadConfig();
+            fetchOrders();
+            setInterval(fetchOrders, 3000);
+        });
+    </script>
 </body>
 </html>
