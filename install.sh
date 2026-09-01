@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # ==============================================================
 # AYDIN PRINT — Self-Service Print & Studio Auto Installer
-# Dengan VERBOSE LOGGING & Live Diagnostics Lengkap
+# Smart AP Hardware Detection (Pilih Card yang Dukung Mode AP)
 # ==============================================================
 
 set -e
@@ -25,32 +25,22 @@ RESULT_DIR="$HOME/Hasil_Print"
 TEMPLATES_DIR="$APP_DIR/templates"
 VENV_DIR="$APP_DIR/venv"
 
-echo -e "${BLUE}[INFO]${NC} Menyiapkan direktori aplikasi..."
-echo "  -> App Dir: $APP_DIR"
-echo "  -> Result Dir: $RESULT_DIR"
 mkdir -p "$APP_DIR" "$RESULT_DIR" "$TEMPLATES_DIR" "$HOME/.local/share/applications" "$HOME/Desktop" 2>/dev/null || true
 
 # 1. Setup Virtual Environment & Fast Check Dependency
-echo ""
 echo -e "${BOLD}${BLUE}▶ [1/5] Memeriksa & Menyiapkan Python Environment...${NC}"
 
 if [ ! -f "$VENV_DIR/bin/python3" ]; then
-    echo -e "  ${YELLOW}[i]${NC} Membuat Python Virtual Environment baru di $VENV_DIR..."
+    echo -e "  ${YELLOW}[i]${NC} Membuat Virtual Environment di $VENV_DIR..."
     python3 -m venv "$VENV_DIR" --system-site-packages 2>/dev/null || python3 -m venv "$VENV_DIR"
-    echo -e "  ${GREEN}[✓]${NC} Virtual environment berhasil dibuat."
-else
-    echo -e "  ${GREEN}[✓]${NC} Virtual environment sudah ada: $VENV_DIR"
 fi
 
 PY_BIN="$VENV_DIR/bin/python3"
 PIP_BIN="$VENV_DIR/bin/pip"
 
-echo "  -> Python Binary : $("$PY_BIN" --version 2>&1)"
-echo "  -> Pip Binary    : $("$PIP_BIN" --version 2>&1)"
-
 MISSING_PKGS=""
 for pkg in flask PIL reportlab qrcode; do
-    echo -n "  -> Memeriksa modul '$pkg'... "
+    echo -n "  -> Memeriksa '$pkg'... "
     if "$PY_BIN" -c "import $pkg" 2>/dev/null; then
         echo -e "${GREEN}[TERPASANG]${NC}"
     else
@@ -67,13 +57,11 @@ if [ -n "$MISSING_PKGS" ]; then
     "$PIP_BIN" install --upgrade pip 2>/dev/null || true
     "$PIP_BIN" install $MISSING_PKGS
     echo -e "  ${GREEN}[✓]${NC} Semua dependensi berhasil dipasang."
-else
-    echo -e "  ${GREEN}[✓]${NC} Semua dependensi Python sudah lengkap."
 fi
 
 # 2. Download Komponen Aplikasi
 echo ""
-echo -e "${BOLD}${BLUE}▶ [2/5] Mengunduh Skrip & Template Web Aydin Print...${NC}"
+echo -e "${BOLD}${BLUE}▶ [2/5] Mengunduh Skrip & Template...${NC}"
 
 FILES_TO_DOWNLOAD=(
     "app.py:$APP_DIR/server.py"
@@ -117,9 +105,7 @@ Environment=PYTHONUNBUFFERED=1
 WantedBy=default.target
 EOF
 
-echo "  -> Reload systemd daemon..."
 systemctl --user daemon-reload
-echo "  -> Enable & restart printdrop.service..."
 systemctl --user enable printdrop.service
 systemctl --user restart printdrop.service
 
@@ -135,54 +121,79 @@ else
     echo -e "${YELLOW}-------------------------${NC}"
 fi
 
-# 4. Deteksi Antarmuka Wi-Fi & Buat Hotspot
+# 4. Deteksi Antarmuka Wi-Fi yang Benar-Benar Mendukung Mode AP (Access Point)
 echo ""
-echo -e "${BOLD}${BLUE}▶ [4/5] Mengonfigurasi & Menyalakan Hotspot Wi-Fi...${NC}"
+echo -e "${BOLD}${BLUE}▶ [4/5] Memilih Perangkat Wi-Fi yang Mendukung Hotspot (AP)...${NC}"
 
 rfkill unblock wifi 2>/dev/null || true
 
-echo "  -> Daftar Interface Wi-Fi yang Terdeteksi:"
-nmcli device status | grep wifi || echo "  [!] Tidak ada device bertipe wifi pada nmcli"
+# Cari interface PCIe Qualcomm QCA9377 (biasanya wlp* tanpa USB 'u' flag, misal wlp2s0 atau wlan0)
+ALL_WIFI=($(nmcli -t -f DEVICE,TYPE dev | grep ':wifi$' | cut -d: -f1))
+echo "  -> Semua Interface Wi-Fi: ${ALL_WIFI[*]}"
 
-WIFI_DEV=$(nmcli -t -f DEVICE,TYPE dev | grep ':wifi$' | cut -d: -f1 | head -n 1)
+AP_DEVICE=""
+for dev in "${ALL_WIFI[@]}"; do
+    # Periksa apakah device ini mendukung mode AP (Access Point)
+    echo -n "  -> Menguji kemampuan AP pada '$dev'... "
+    PHY=$(iw dev "$dev" info 2>/dev/null | grep wiphy | awk '{print "phy"$2}')
+    if [ -n "$PHY" ] && iw phy "$PHY" info 2>/dev/null | grep -E '* AP$' &>/dev/null; then
+        echo -e "${GREEN}[MENDUKUNG AP]${NC}"
+        AP_DEVICE="$dev"
+        break
+    else
+        # Jika bukan wlp*u* (bukan USB dongle), beri prioritas
+        if [[ "$dev" =~ ^wlp[0-9]+s[0-9]+$ ]] || [[ "$dev" =~ ^wlan[0-9]+$ ]]; then
+            echo -e "${GREEN}[PCIe Card Terpilih]${NC}"
+            AP_DEVICE="$dev"
+            break
+        else
+            echo -e "${YELLOW}[Bukan AP Utama]${NC}"
+        fi
+    fi
+done
 
-if [ -n "$WIFI_DEV" ]; then
-    echo -e "  -> Perangkat Wi-Fi yang Dipilih: ${CYAN}$WIFI_DEV${NC}"
+# Jika belum terpilih, ambil yang PCIe (bukan USB 'u')
+if [ -z "$AP_DEVICE" ]; then
+    for dev in "${ALL_WIFI[@]}"; do
+        if [[ ! "$dev" =~ u[0-9]+ ]]; then
+            AP_DEVICE="$dev"
+            break
+        fi
+    done
+fi
+
+if [ -z "$AP_DEVICE" ] && [ ${#ALL_WIFI[@]} -gt 0 ]; then
+    AP_DEVICE="${ALL_WIFI[0]}"
+fi
+
+if [ -n "$AP_DEVICE" ]; then
+    echo -e "  -> ${BOLD}${GREEN}Target Hotspot Wi-Fi Card: $AP_DEVICE${NC}"
     
-    echo "  -> Membersihkan koneksi lama (jika ada)..."
     nmcli con delete "AYDIN-PRINT" 2>/dev/null || true
     nmcli con delete "AYDIN-PRINT-5G" 2>/dev/null || true
     nmcli con delete "Hotspot-Print" 2>/dev/null || true
     
-    echo "  -> Menyalakan Hotspot 'AYDIN-PRINT'..."
-    if nmcli dev wifi hotspot ifname "$WIFI_DEV" ssid "AYDIN-PRINT" password "aydinprint" con-name "AYDIN-PRINT"; then
-        echo -e "  ${GREEN}[✓] Hotspot 'AYDIN-PRINT' BERHASIL MEMANCAR!${NC}"
-    else
-        echo -e "  ${YELLOW}[i] Mencoba metode koneksi alternatif...${NC}"
-        nmcli con add type wifi ifname "$WIFI_DEV" con-name "AYDIN-PRINT" autoconnect yes ssid "AYDIN-PRINT"
-        nmcli con modify "AYDIN-PRINT" 802-11-wireless.mode ap
-        nmcli con modify "AYDIN-PRINT" 802-11-wireless-security.key-mgmt wpa-psk
-        nmcli con modify "AYDIN-PRINT" 802-11-wireless-security.psk "aydinprint"
-        nmcli con modify "AYDIN-PRINT" ipv4.method shared
-        nmcli con up "AYDIN-PRINT"
-        echo -e "  ${GREEN}[✓] Hotspot 'AYDIN-PRINT' BERHASIL DIAKTIFKAN!${NC}"
-    fi
+    echo "  -> Mengaktifkan Hotspot 'AYDIN-PRINT' pada $AP_DEVICE..."
+    nmcli con add type wifi ifname "$AP_DEVICE" con-name "AYDIN-PRINT" autoconnect yes ssid "AYDIN-PRINT"
+    nmcli con modify "AYDIN-PRINT" 802-11-wireless.mode ap
+    nmcli con modify "AYDIN-PRINT" 802-11-wireless-security.key-mgmt wpa-psk
+    nmcli con modify "AYDIN-PRINT" 802-11-wireless-security.psk "aydinprint"
+    nmcli con modify "AYDIN-PRINT" ipv4.method shared
     
-    HOTSPOT_IP=$(nmcli -t -f IP4.ADDRESS dev show "$WIFI_DEV" 2>/dev/null | cut -d: -f2 | cut -d/ -f1 | head -n 1)
-    echo -e "  -> IP Gateway Hotspot PC: ${GREEN}${HOTSPOT_IP:-10.42.0.1}${NC}"
+    if nmcli con up "AYDIN-PRINT"; then
+        echo -e "  ${GREEN}[✓] Hotspot 'AYDIN-PRINT' BERHASIL MEMANCAR PADA $AP_DEVICE!${NC}"
+    else
+        echo -e "  ${YELLOW}[i] Mencoba dengan nmcli dev wifi hotspot...${NC}"
+        nmcli dev wifi hotspot ifname "$AP_DEVICE" ssid "AYDIN-PRINT" password "aydinprint" con-name "AYDIN-PRINT" || true
+    fi
 else
-    echo -e "  ${RED}[!] PERINGATAN: Perangkat Wi-Fi tidak ditemukan. Periksa saklar Wi-Fi atau driver.${NC}"
+    echo -e "  ${RED}[!] PERINGATAN: Wi-Fi Card PCIe tidak ditemukan.${NC}"
 fi
 
 # 5. Generate Poster Meja & Shortcut Aplikasi
 echo ""
 echo -e "${BOLD}${BLUE}▶ [5/5] Menghasilkan Poster Meja & Shortcut Aplikasi...${NC}"
-echo -n "  -> Menjalankan generate_poster.py... "
-if "$PY_BIN" "$APP_DIR/generate_poster.py"; then
-    echo -e "${GREEN}[BERHASIL]${NC}"
-else
-    echo -e "${RED}[GAGAL]${NC}"
-fi
+"$PY_BIN" "$APP_DIR/generate_poster.py"
 
 cat << 'EOF' > "$HOME/.local/share/applications/aydin-print-kasir.desktop"
 [Desktop Entry]
@@ -198,14 +209,14 @@ EOF
 chmod +x "$HOME/.local/share/applications/aydin-print-kasir.desktop" 2>/dev/null || true
 cp "$HOME/.local/share/applications/aydin-print-kasir.desktop" "$HOME/Desktop/" 2>/dev/null || true
 
-# Test Konektivitas Server Lokal
+# Test Koneksi Server
 echo ""
 echo -e "${BOLD}${BLUE}▶ [TEST KONEKSI SERVER]${NC}"
 HTTP_TEST=$(curl -s -o /dev/null -w "%{http_code}" http://127.0.0.1:5000/ || echo "ERR")
 if [ "$HTTP_TEST" = "200" ]; then
     echo -e "  ${GREEN}[✓] Web Server Berjalan Normal di http://127.0.0.1:5000 (HTTP 200 OK)${NC}"
 else
-    echo -e "  ${YELLOW}[i] Response Server Lokal: $HTTP_TEST${NC}"
+    echo -e "  ${YELLOW}[i] Response Server: $HTTP_TEST${NC}"
 fi
 
 echo ""
