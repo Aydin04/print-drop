@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # ==============================================================
 # AYDIN PRINT — Self-Service Print & Studio Auto Installer
-# Dual-Band Hotspot (5GHz PCIe QCA9377 + 2.4GHz USB Dongle)
+# PCIe WiFi Card (QCA9377) -> Khusus Hotspot Toko Universal
+# USB WiFi Dongle           -> Bebas dipakai untuk Internet PC
 # Khusus Linux Aurora / Fedora Atomic / Ubuntu / Arch
 # ==============================================================
 
@@ -55,50 +56,31 @@ systemctl --user daemon-reload
 systemctl --user enable printdrop.service
 systemctl --user restart printdrop.service
 
-# 4. Setup DUAL-BAND Hotspot: 5GHz (PCIe QCA9377) & 2.4GHz (USB Dongle)
-echo "▶ [4/5] Mengonfigurasi Hotspot Dual-Band (5GHz & 2.4GHz)..."
+# 4. Setup PCIe QCA9377 Khusus Hotspot Universal (AYDIN-PRINT)
+echo "▶ [4/5] Mengonfigurasi Hotspot Toko pada Wi-Fi Card Internal (QCA9377)..."
 
-# Ambil semua interface wifi yang terdeteksi di PC
-WIFI_INTERFACES=($(nmcli -t -f DEVICE,TYPE dev | grep ':wifi$' | cut -d: -f1))
-NUM_WIFI=${#WIFI_INTERFACES[@]}
+# Cari interface PCIe (biasanya wlp* atau ath9k/ath10k)
+PCIE_IFACE=$(nmcli -t -f DEVICE,TYPE dev | grep ':wifi$' | cut -d: -f1 | grep -E '^wlp|^wlan' | head -n 1)
 
-echo "  -> Terdeteksi $NUM_WIFI interface Wi-Fi."
+if [ -z "$PCIE_IFACE" ]; then
+    PCIE_IFACE=$(nmcli -t -f DEVICE,TYPE dev | grep ':wifi$' | cut -d: -f1 | head -n 1)
+fi
 
-# Hapus koneksi lama agar bersih
+echo "  -> Interface Hotspot Toko: $PCIE_IFACE"
+echo "  -> Interface USB Wi-Fi Anda tetap BEBAS digunakan untuk koneksi Internet Toko/Pribadi!"
+
 nmcli con delete "AYDIN-PRINT-5G" 2>/dev/null || true
 nmcli con delete "AYDIN-PRINT" 2>/dev/null || true
-nmcli con delete "AYDIN-PRINT-2G" 2>/dev/null || true
 nmcli con delete "Hotspot-Print" 2>/dev/null || true
 
-if [ "$NUM_WIFI" -ge 2 ]; then
-    IFACE_5G="${WIFI_INTERFACES[0]}"
-    IFACE_2G="${WIFI_INTERFACES[1]}"
+# Aktifkan Hotspot Universal (802.11n/g Mode) agar BISA DIBUKA OLEH SEMUA HP (HP 5G maupun HP Lama)
+nmcli con add type wifi ifname "$PCIE_IFACE" con-name "AYDIN-PRINT" autoconnect yes ssid "AYDIN-PRINT" 2>/dev/null || true
+nmcli con modify "AYDIN-PRINT" 802-11-wireless.mode ap 802-11-wireless.band bg 802-11-wireless.channel 6 2>/dev/null || true
+nmcli con modify "AYDIN-PRINT" 802-11-wireless-security.key-mgmt wpa-psk 802-11-wireless-security.psk "aydinprint" 2>/dev/null || true
+nmcli con modify "AYDIN-PRINT" ipv4.method shared ipv6.method ignore 2>/dev/null || true
+nmcli con up "AYDIN-PRINT" 2>/dev/null || true
 
-    # 1. Setup Hotspot 5GHz (Super Cepat untuk HP Modern)
-    nmcli con add type wifi ifname "$IFACE_5G" con-name "AYDIN-PRINT-5G" autoconnect yes ssid "AYDIN-PRINT-5G" 2>/dev/null || true
-    nmcli con modify "AYDIN-PRINT-5G" 802-11-wireless.mode ap 802-11-wireless.band a 802-11-wireless.channel 36 2>/dev/null || true
-    nmcli con modify "AYDIN-PRINT-5G" 802-11-wireless-security.key-mgmt wpa-psk 802-11-wireless-security.psk "aydinprint" 2>/dev/null || true
-    nmcli con modify "AYDIN-PRINT-5G" ipv4.method shared ipv6.method ignore 2>/dev/null || true
-    nmcli con up "AYDIN-PRINT-5G" 2>/dev/null || true
-    echo "  -> [1/2] Hotspot 5GHz 'AYDIN-PRINT-5G' aktif pada $IFACE_5G!"
-
-    # 2. Setup Hotspot 2.4GHz (Kompatibel untuk Semua HP Tipe Lama)
-    nmcli con add type wifi ifname "$IFACE_2G" con-name "AYDIN-PRINT" autoconnect yes ssid "AYDIN-PRINT" 2>/dev/null || true
-    nmcli con modify "AYDIN-PRINT" 802-11-wireless.mode ap 802-11-wireless.band bg 802-11-wireless.channel 6 2>/dev/null || true
-    nmcli con modify "AYDIN-PRINT" 802-11-wireless-security.key-mgmt wpa-psk 802-11-wireless-security.psk "aydinprint" 2>/dev/null || true
-    nmcli con modify "AYDIN-PRINT" ipv4.method shared ipv6.method ignore 2>/dev/null || true
-    nmcli con up "AYDIN-PRINT" 2>/dev/null || true
-    echo "  -> [2/2] Hotspot 2.4GHz 'AYDIN-PRINT' aktif pada $IFACE_2G!"
-elif [ "$NUM_WIFI" -eq 1 ]; then
-    IFACE_MAIN="${WIFI_INTERFACES[0]}"
-    # Jika hanya 1 interface terpasang, aktifkan dual-compatibility mode (2.4GHz/5GHz auto)
-    nmcli con add type wifi ifname "$IFACE_MAIN" con-name "AYDIN-PRINT" autoconnect yes ssid "AYDIN-PRINT" 2>/dev/null || true
-    nmcli con modify "AYDIN-PRINT" 802-11-wireless.mode ap 802-11-wireless.band bg 2>/dev/null || true
-    nmcli con modify "AYDIN-PRINT" 802-11-wireless-security.key-mgmt wpa-psk 802-11-wireless-security.psk "aydinprint" 2>/dev/null || true
-    nmcli con modify "AYDIN-PRINT" ipv4.method shared ipv6.method ignore 2>/dev/null || true
-    nmcli con up "AYDIN-PRINT" 2>/dev/null || true
-    echo "  -> Hotspot 'AYDIN-PRINT' aktif pada $IFACE_MAIN!"
-fi
+echo "  -> Hotspot Universal 'AYDIN-PRINT' berhasil aktif di Wi-Fi Card Internal!"
 
 # 5. Generate Poster QR Meja & Shortcut Kasir
 echo "▶ [5/5] Menghasilkan Poster Meja & Shortcut Aplikasi..."
@@ -120,13 +102,14 @@ cp "$HOME/.local/share/applications/aydin-print-kasir.desktop" "$HOME/Desktop/" 
 
 echo ""
 echo "================================================================"
-echo "🎉 INSTALASI AYDIN PRINT SELESAI & SUKSES!"
+echo "🎉 INSTALASI SELESAI & SEMPURNA!"
 echo "================================================================"
-echo "🛡️ Buka Panel Kasir di PC : http://127.0.0.1:5000/admin"
-echo "🌐 Web Pelanggan (Lokal)  : http://10.42.0.1:5000"
-echo "📶 SSID Wi-Fi 5GHz        : AYDIN-PRINT-5G (Password: aydinprint)"
-echo "📶 SSID Wi-Fi 2.4GHz      : AYDIN-PRINT    (Password: aydinprint)"
-echo "📁 Folder File Masuk      : $RESULT_DIR"
-echo "🖼️ Gambar Poster Meja     : $APP_DIR/POSTER_MEJA_AYDIN_PRINT.png"
+echo "📶 Wi-Fi Card PC (QCA9377) : Hotspot Toko 'AYDIN-PRINT' (Semua HP Masuk)"
+echo "🔌 USB Wi-Fi Dongle        : 100% BEBAS untuk Internet PC Anda"
+echo "🔑 Password Hotspot Toko   : aydinprint"
+echo "🛡️ Buka Panel Kasir di PC  : http://127.0.0.1:5000/admin"
+echo "🌐 Web Pelanggan (Lokal)   : http://10.42.0.1:5000"
+echo "📁 Folder File Masuk       : $RESULT_DIR"
+echo "🖼️ Gambar Poster Meja      : $APP_DIR/POSTER_MEJA_AYDIN_PRINT.png"
 echo "================================================================"
 echo ""
