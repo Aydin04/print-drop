@@ -20,6 +20,24 @@ def is_admin_authenticated():
         return True
     return session.get("is_admin", False) is True
 
+
+# ================= CAPTIVE PORTAL PROBE HANDLERS =================
+# Ketika HP pelanggan konek Wi-Fi, HP otomatis membuka web ini langsung di layar (Pop-up Login Wi-Fi)
+
+@app.route("/generate_204") # Android probe
+@app.route("/gen_204")      # Android probe
+@app.route("/ncsi.txt")     # Windows probe
+def android_captive_portal():
+    # Redirect directly to web upload
+    from flask import redirect
+    return redirect("http://10.42.0.1:5000/")
+
+@app.route("/hotspot-detect.html") # iOS / Apple CNA probe
+@app.route("/canonical.html")
+def apple_captive_portal():
+    from flask import redirect
+    return redirect("http://10.42.0.1:5000/")
+
 @app.route("/")
 def index():
     db = load_db()
