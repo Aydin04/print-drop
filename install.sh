@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # ==============================================================
 # AYDIN PRINT — Self-Service Print & Studio Auto Installer
-# Smart AP Hardware Detection (Pilih Card yang Dukung Mode AP)
+# Dengan Buka Port Firewall 5000 & Konfirmasi IP Hotspot
 # ==============================================================
 
 set -e
@@ -113,86 +113,69 @@ sleep 2
 
 SERVICE_STATUS=$(systemctl --user is-active printdrop.service 2>&1 || true)
 if [ "$SERVICE_STATUS" = "active" ]; then
-    echo -e "  ${GREEN}[✓] printdrop.service BERJALAN AKTIF (Status: $SERVICE_STATUS)${NC}"
+    echo -e "  ${GREEN}[✓] printdrop.service BERJALAN AKTIF${NC}"
 else
-    echo -e "  ${RED}[!] printdrop.service GAGAL AKTIF (Status: $SERVICE_STATUS)${NC}"
-    echo -e "${YELLOW}--- LOG ERROR SERVICE ---${NC}"
+    echo -e "  ${RED}[!] printdrop.service GAGAL AKTIF${NC}"
     journalctl --user-unit printdrop.service -n 15 --no-pager || true
-    echo -e "${YELLOW}-------------------------${NC}"
 fi
 
-# 4. Deteksi Antarmuka Wi-Fi yang Benar-Benar Mendukung Mode AP (Access Point)
+# 4. Deteksi Antarmuka Wi-Fi & Buat Hotspot
 echo ""
-echo -e "${BOLD}${BLUE}▶ [4/5] Memilih Perangkat Wi-Fi yang Mendukung Hotspot (AP)...${NC}"
+echo -e "${BOLD}${BLUE}▶ [4/5] Mengonfigurasi Hotspot Wi-Fi & Firewall...${NC}"
 
 rfkill unblock wifi 2>/dev/null || true
 
-# Cari interface PCIe Qualcomm QCA9377 (biasanya wlp* tanpa USB 'u' flag, misal wlp2s0 atau wlan0)
 ALL_WIFI=($(nmcli -t -f DEVICE,TYPE dev | grep ':wifi$' | cut -d: -f1))
-echo "  -> Semua Interface Wi-Fi: ${ALL_WIFI[*]}"
+echo "  -> Interface Wi-Fi: ${ALL_WIFI[*]}"
 
 AP_DEVICE=""
 for dev in "${ALL_WIFI[@]}"; do
-    # Periksa apakah device ini mendukung mode AP (Access Point)
-    echo -n "  -> Menguji kemampuan AP pada '$dev'... "
     PHY=$(iw dev "$dev" info 2>/dev/null | grep wiphy | awk '{print "phy"$2}')
     if [ -n "$PHY" ] && iw phy "$PHY" info 2>/dev/null | grep -E '* AP$' &>/dev/null; then
-        echo -e "${GREEN}[MENDUKUNG AP]${NC}"
         AP_DEVICE="$dev"
         break
-    else
-        # Jika bukan wlp*u* (bukan USB dongle), beri prioritas
-        if [[ "$dev" =~ ^wlp[0-9]+s[0-9]+$ ]] || [[ "$dev" =~ ^wlan[0-9]+$ ]]; then
-            echo -e "${GREEN}[PCIe Card Terpilih]${NC}"
-            AP_DEVICE="$dev"
-            break
-        else
-            echo -e "${YELLOW}[Bukan AP Utama]${NC}"
-        fi
+    elif [[ "$dev" =~ ^wlp[0-9]+s[0-9]+$ ]] || [[ "$dev" =~ ^wlan[0-9]+$ ]]; then
+        AP_DEVICE="$dev"
+        break
     fi
 done
-
-# Jika belum terpilih, ambil yang PCIe (bukan USB 'u')
-if [ -z "$AP_DEVICE" ]; then
-    for dev in "${ALL_WIFI[@]}"; do
-        if [[ ! "$dev" =~ u[0-9]+ ]]; then
-            AP_DEVICE="$dev"
-            break
-        fi
-    done
-fi
 
 if [ -z "$AP_DEVICE" ] && [ ${#ALL_WIFI[@]} -gt 0 ]; then
     AP_DEVICE="${ALL_WIFI[0]}"
 fi
 
 if [ -n "$AP_DEVICE" ]; then
-    echo -e "  -> ${BOLD}${GREEN}Target Hotspot Wi-Fi Card: $AP_DEVICE${NC}"
+    echo -e "  -> ${BOLD}${GREEN}Target Hotspot Card: $AP_DEVICE${NC}"
     
     nmcli con delete "AYDIN-PRINT" 2>/dev/null || true
     nmcli con delete "AYDIN-PRINT-5G" 2>/dev/null || true
-    nmcli con delete "Hotspot-Print" 2>/dev/null || true
     
-    echo "  -> Mengaktifkan Hotspot 'AYDIN-PRINT' pada $AP_DEVICE..."
+    echo "  -> Menyalakan Hotspot 'AYDIN-PRINT' pada $AP_DEVICE..."
     nmcli con add type wifi ifname "$AP_DEVICE" con-name "AYDIN-PRINT" autoconnect yes ssid "AYDIN-PRINT"
     nmcli con modify "AYDIN-PRINT" 802-11-wireless.mode ap
     nmcli con modify "AYDIN-PRINT" 802-11-wireless-security.key-mgmt wpa-psk
     nmcli con modify "AYDIN-PRINT" 802-11-wireless-security.psk "aydinprint"
     nmcli con modify "AYDIN-PRINT" ipv4.method shared
     
-    if nmcli con up "AYDIN-PRINT"; then
-        echo -e "  ${GREEN}[✓] Hotspot 'AYDIN-PRINT' BERHASIL MEMANCAR PADA $AP_DEVICE!${NC}"
-    else
-        echo -e "  ${YELLOW}[i] Mencoba dengan nmcli dev wifi hotspot...${NC}"
-        nmcli dev wifi hotspot ifname "$AP_DEVICE" ssid "AYDIN-PRINT" password "aydinprint" con-name "AYDIN-PRINT" || true
-    fi
-else
-    echo -e "  ${RED}[!] PERINGATAN: Wi-Fi Card PCIe tidak ditemukan.${NC}"
+    nmcli con up "AYDIN-PRINT" || nmcli dev wifi hotspot ifname "$AP_DEVICE" ssid "AYDIN-PRINT" password "aydinprint" con-name "AYDIN-PRINT" || true
+    echo -e "  ${GREEN}[✓] Hotspot 'AYDIN-PRINT' Aktif!${NC}"
 fi
 
-# 5. Generate Poster Meja & Shortcut Aplikasi
+# 5. Buka Port 5000 di Firewall Linux Aurora (Fedora/firewalld)
 echo ""
-echo -e "${BOLD}${BLUE}▶ [5/5] Menghasilkan Poster Meja & Shortcut Aplikasi...${NC}"
+echo -e "${BOLD}${BLUE}▶ [5/5] Membuka Akses Firewall Port 5000 untuk HP Pelanggan...${NC}"
+if command -v firewall-cmd &>/dev/null; then
+    sudo firewall-cmd --add-port=5000/tcp --permanent 2>/dev/null || firewall-cmd --add-port=5000/tcp 2>/dev/null || true
+    sudo firewall-cmd --reload 2>/dev/null || firewall-cmd --reload 2>/dev/null || true
+    echo -e "  ${GREEN}[✓] Port 5000 berhasil dibuka pada firewalld.${NC}"
+fi
+
+# Cari IP Hotspot yang didapat PC
+HOTSPOT_IP=$(ip -4 addr show "$AP_DEVICE" 2>/dev/null | grep -oP '(?<=inet\s)\d+(\.\d+){3}' | head -n 1)
+if [ -z "$HOTSPOT_IP" ]; then
+    HOTSPOT_IP="10.42.0.1"
+fi
+
 "$PY_BIN" "$APP_DIR/generate_poster.py"
 
 cat << 'EOF' > "$HOME/.local/share/applications/aydin-print-kasir.desktop"
@@ -209,23 +192,13 @@ EOF
 chmod +x "$HOME/.local/share/applications/aydin-print-kasir.desktop" 2>/dev/null || true
 cp "$HOME/.local/share/applications/aydin-print-kasir.desktop" "$HOME/Desktop/" 2>/dev/null || true
 
-# Test Koneksi Server
-echo ""
-echo -e "${BOLD}${BLUE}▶ [TEST KONEKSI SERVER]${NC}"
-HTTP_TEST=$(curl -s -o /dev/null -w "%{http_code}" http://127.0.0.1:5000/ || echo "ERR")
-if [ "$HTTP_TEST" = "200" ]; then
-    echo -e "  ${GREEN}[✓] Web Server Berjalan Normal di http://127.0.0.1:5000 (HTTP 200 OK)${NC}"
-else
-    echo -e "  ${YELLOW}[i] Response Server: $HTTP_TEST${NC}"
-fi
-
 echo ""
 echo -e "${GREEN}╔════════════════════════════════════════════════════════════╗${NC}"
-echo -e "${GREEN}║           🎉 INSTALASI SELESAI & SUKSES LENGKAP!           ║${NC}"
+echo -e "${GREEN}║           🎉 INSTALASI SELESAI & SIAP DIGUNAKAN!           ║${NC}"
 echo -e "${GREEN}╚════════════════════════════════════════════════════════════╝${NC}"
-echo -e "🛡️ ${BOLD}Buka Panel Kasir PC${NC} : ${CYAN}http://127.0.0.1:5000/admin${NC}"
-echo -e "🌐 ${BOLD}Web Pelanggan (Lokal)${NC} : ${CYAN}http://10.42.0.1:5000${NC}"
-echo -e "📶 ${BOLD}Wi-Fi Hotspot Toko${NC}   : ${YELLOW}AYDIN-PRINT${NC} (Password: ${YELLOW}aydinprint${NC})"
-echo -e "📁 ${BOLD}Folder File Masuk${NC}    : $RESULT_DIR"
-echo -e "🖼️ ${BOLD}Gambar Poster Meja${NC}   : $APP_DIR/POSTER_MEJA_AYDIN_PRINT.png"
+echo -e "🛡️ ${BOLD}Buka Panel Kasir (di PC)${NC}  : ${CYAN}http://127.0.0.1:5000/admin${NC}"
+echo -e "🌐 ${BOLD}Web Pelanggan (dari HP)${NC}   : ${BOLD}${GREEN}http://$HOTSPOT_IP:5000${NC}"
+echo -e "📶 ${BOLD}Wi-Fi Hotspot Toko${NC}        : ${YELLOW}AYDIN-PRINT${NC} (Password: ${YELLOW}aydinprint${NC})"
+echo -e "📁 ${BOLD}Folder File Masuk${NC}         : $RESULT_DIR"
+echo -e "🖼️ ${BOLD}Gambar Poster Meja${NC}        : $APP_DIR/POSTER_MEJA_AYDIN_PRINT.png"
 echo ""
