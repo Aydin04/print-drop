@@ -2,66 +2,83 @@ import os
 import qrcode
 from PIL import Image, ImageDraw
 
-def generate_poster():
-    output_path = os.path.expanduser("~/PrintDrop/POSTER_MEJA_AYDIN_PRINT.png")
-    os.makedirs(os.path.dirname(output_path), exist_ok=True)
+def generate_posters():
+    app_dir = os.path.expanduser("~/PrintDrop")
+    os.makedirs(app_dir, exist_ok=True)
 
-    # QR: Auto Connect Wi-Fi (Triggers Auto Captive Portal Popup on phone)
+    # 1. Generate QR Code Images
+    # QR Wi-Fi
     wifi_str = "WIFI:S:AYDIN-PRINT;T:WPA;P:aydinprint;;"
-    qr_wifi = qrcode.QRCode(box_size=16, border=2, error_correction=qrcode.constants.ERROR_CORRECT_H)
-    qr_wifi.add_data(wifi_str)
-    qr_wifi.make(fit=True)
-    img_wifi = qr_wifi.make_image(fill_color="#0284c7", back_color="white").convert("RGBA")
+    qr_w = qrcode.QRCode(box_size=12, border=2, error_correction=qrcode.constants.ERROR_CORRECT_H)
+    qr_w.add_data(wifi_str)
+    qr_w.make(fit=True)
+    img_wifi = qr_w.make_image(fill_color="#0284c7", back_color="white").convert("RGBA")
 
-    # Canvas Poster (High-Res 1200 x 1650 px)
-    W, H = 1200, 1650
+    # QR Web
+    url_str = "http://10.42.0.1:5000"
+    qr_u = qrcode.QRCode(box_size=12, border=2, error_correction=qrcode.constants.ERROR_CORRECT_H)
+    qr_u.add_data(url_str)
+    qr_u.make(fit=True)
+    img_url = qr_u.make_image(fill_color="#0f172a", back_color="white").convert("RGBA")
+
+    # ================= POSTER DUA LANGKAH (2 QR BERDAMPINGAN) =================
+    W, H = 1200, 1600
     poster = Image.new("RGB", (W, H), "#0b0f19")
     draw = ImageDraw.Draw(poster)
 
-    # Top accent line
-    draw.rectangle([(0, 0), (W, 16)], fill="#0284c7")
+    # Accent Border Top
+    draw.rectangle([(0, 0), (W, 14)], fill="#0284c7")
 
-    # Card background
-    card_m = 50
-    draw.rounded_rectangle([(card_m, 50), (W - card_m, H - 50)], radius=30, fill="#1e293b", outline="#334155", width=4)
+    # Outer Frame
+    draw.rounded_rectangle([(40, 40), (W - 40, H - 40)], radius=24, fill="#1e293b", outline="#334155", width=3)
 
-    # Header
-    draw.text((W // 2, 120), "AYDIN PRINT", fill="#38bdf8", anchor="mm", font_size=64)
-    draw.text((W // 2, 185), "LAYANAN CETAK MANDIRI & STUDIO PAS FOTO", fill="#94a3b8", anchor="mm", font_size=24)
+    # Brand Title
+    draw.text((W // 2, 110), "AYDIN PRINT", fill="#38bdf8", anchor="mm", font_size=58)
+    draw.text((W // 2, 170), "PETUNJUK TRANSFER FILE & CETAK DARI HP", fill="#94a3b8", anchor="mm", font_size=22)
 
-    # Main Big QR Box (1x SCAN SAJA)
-    box_y = 260
-    box_h = 820
-    draw.rounded_rectangle([(100, box_y), (W - 100, box_y + box_h)], radius=24, fill="#0f172a", outline="#0284c7", width=4)
+    # Box Step 1 (Wi-Fi)
+    b1_y = 230
+    b_h = 560
+    draw.rounded_rectangle([(70, b1_y), (W - 70, b1_y + b_h)], radius=20, fill="#0f172a", outline="#0284c7", width=3)
+    draw.rounded_rectangle([(100, b1_y - 20), (520, b1_y + 25)], radius=12, fill="#0284c7")
+    draw.text((310, b1_y + 2), "LANGKAH 1: KONEK WI-FI", fill="#ffffff", anchor="mm", font_size=20)
 
-    # Badge Heading
-    draw.rounded_rectangle([(W // 2 - 320, box_y - 25), (W // 2 + 320, box_y + 35)], radius=16, fill="#0284c7")
-    draw.text((W // 2, box_y + 5), "📷 CUKUP 1x SCAN DENGAN KAMERA HP", fill="#ffffff", anchor="mm", font_size=24)
+    # Paste QR Wi-Fi
+    qr_sz = 400
+    img_w_resized = img_wifi.resize((qr_sz, qr_sz))
+    poster.paste(img_w_resized, (110, b1_y + 75), img_w_resized)
 
-    # Paste Big QR
-    qr_size = 500
-    img_resized = img_wifi.resize((qr_size, qr_size))
-    poster.paste(img_resized, ((W - qr_size) // 2, box_y + 80), img_resized)
+    # Text Step 1
+    t1_x = 550
+    draw.text((t1_x, b1_y + 110), "1. Scan QR di samping", fill="#ffffff", font_size=30)
+    draw.text((t1_x, b1_y + 165), "2. Ketuk 'Hubungkan Wi-Fi'", fill="#38bdf8", font_size=26)
+    draw.text((t1_x, b1_y + 240), "Nama Wi-Fi : AYDIN-PRINT", fill="#94a3b8", font_size=22)
+    draw.text((t1_x, b1_y + 280), "Password   : aydinprint", fill="#94a3b8", font_size=22)
+    draw.text((t1_x, b1_y + 340), "✨ Transfer Cepat 5GHz • Bebas Kuota", fill="#22c55e", font_size=20)
 
-    # Instruction Steps Below QR
-    draw.text((W // 2, box_y + 630), "1. Arahkan Kamera HP ke QR Code di atas", fill="#f8fafc", anchor="mm", font_size=28)
-    draw.text((W // 2, box_y + 685), "2. Ketuk tombol 'Hubungkan ke Wi-Fi'", fill="#38bdf8", anchor="mm", font_size=26)
-    draw.text((W // 2, box_y + 740), "3. Web Cetak otomatis terbuka di layar HP Anda!", fill="#22c55e", anchor="mm", font_size=26)
+    # Box Step 2 (Web Cetak)
+    b2_y = 830
+    draw.rounded_rectangle([(70, b2_y), (W - 70, b2_y + b_h)], radius=20, fill="#0f172a", outline="#22c55e", width=3)
+    draw.rounded_rectangle([(100, b2_y - 20), (520, b2_y + 25)], radius=12, fill="#22c55e")
+    draw.text((310, b2_y + 2), "LANGKAH 2: BUKA WEB CETAK", fill="#ffffff", anchor="mm", font_size=20)
 
-    # Features Banner
-    draw.text((W // 2, 1170), "✨ Transfer Cepat 5GHz • Otomatis Crop Pas Foto • Tanpa Kuota Internet", fill="#cbd5e1", anchor="mm", font_size=23)
+    # Paste QR Web
+    img_u_resized = img_url.resize((qr_sz, qr_sz))
+    poster.paste(img_u_resized, (110, b2_y + 75), img_u_resized)
 
-    # Fallback Info (Small Box)
-    draw.rounded_rectangle([(140, 1230), (W - 140, 1420)], radius=16, fill="#0f172a", outline="#334155", width=2)
-    draw.text((W // 2, 1275), "Jika web tidak otomatis terbuka:", fill="#94a3b8", anchor="mm", font_size=20)
-    draw.text((W // 2, 1320), "Buka browser Google Chrome / Safari, lalu ketik:", fill="#94a3b8", anchor="mm", font_size=20)
-    draw.text((W // 2, 1370), "🌐 http://10.42.0.1:5000", fill="#38bdf8", anchor="mm", font_size=28)
+    # Text Step 2
+    draw.text((t1_x, b2_y + 110), "1. Scan QR di samping", fill="#ffffff", font_size=30)
+    draw.text((t1_x, b2_y + 165), "2. Masukkan Nama Pemesan", fill="#22c55e", font_size=24)
+    draw.text((t1_x, b2_y + 215), "3. Upload Dokumen / Foto", fill="#22c55e", font_size=24)
+    draw.text((t1_x, b2_y + 265), "4. Klik Kirim Pesanan", fill="#22c55e", font_size=24)
+    draw.text((t1_x, b2_y + 340), "🌐 Atau ketik: 10.42.0.1:5000", fill="#94a3b8", font_size=22)
 
     # Footer
-    draw.text((W // 2, 1490), "Setelah kirim file, silakan infokan nama Anda ke kasir.", fill="#64748b", anchor="mm", font_size=20)
+    draw.text((W // 2, 1480), "Setelah kirim file, silakan konfirmasi nama Anda ke kasir.", fill="#64748b", anchor="mm", font_size=20)
 
-    poster.save(output_path, "PNG")
-    print(f"Poster 1-Scan tersimpan di: {output_path}")
+    poster_path = os.path.join(app_dir, "POSTER_MEJA_AYDIN_PRINT.png")
+    poster.save(poster_path, "PNG")
+    print(f"Poster tersimpan di: {poster_path}")
 
 if __name__ == "__main__":
-    generate_poster()
+    generate_posters()
