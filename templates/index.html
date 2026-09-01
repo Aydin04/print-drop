@@ -3,675 +3,496 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Aydin Print — Layanan Cetak Self-Service</title>
-    <!-- Tailwind CSS CDN -->
-    <script src="https://cdn.tailwindcss.com"></script>
-    <!-- Cropper.js CDN -->
+    <title>Aydin Print — Kirim & Cetak Otomatis</title>
+    <!-- Cropper.js for Interactive Photo Crop/Zoom -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.1/cropper.min.css">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.1/cropper.min.js"></script>
-    <!-- PDF.js CDN -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
-    <!-- Lucide Icons -->
-    <script src="https://unpkg.com/lucide@latest"></script>
     <style>
-        body { background-color: #0b0f19; color: #f1f5f9; }
-        .glass-card { background: rgba(30, 41, 59, 0.8); backdrop-filter: blur(12px); border: 1px solid rgba(255, 255, 255, 0.08); }
-        .cropper-view-box, .cropper-face { border-radius: 4px; }
-        .cropper-line, .cropper-point { background-color: #38bdf8; }
+        :root {
+            --primary: #0284c7;
+            --primary-dark: #0369a1;
+            --bg: #0f172a;
+            --card-bg: #1e293b;
+            --card-border: #334155;
+            --text-main: #f8fafc;
+            --text-muted: #94a3b8;
+            --accent: #22c55e;
+            --warning: #f59e0b;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+        body { background-color: var(--bg); color: var(--text-main); min-height: 100vh; padding: 12px; display: flex; justify-content: center; }
+        .wrapper { width: 100%; max-width: 500px; padding-bottom: 40px; }
+
+        .header { text-align: center; padding: 15px 0 10px; }
+        .header h1 { font-size: 24px; color: #38bdf8; font-weight: 800; display: flex; align-items: center; justify-content: center; gap: 8px; }
+        .header p { font-size: 13px; color: var(--text-muted); margin-top: 4px; }
+
+        /* Tabs */
+        .tabs { display: flex; background: #0b1120; border-radius: 12px; padding: 4px; margin-bottom: 16px; border: 1px solid var(--card-border); }
+        .tab-btn { flex: 1; padding: 10px; text-align: center; border: none; background: transparent; color: var(--text-muted); font-weight: 600; font-size: 14px; border-radius: 8px; cursor: pointer; transition: 0.2s; }
+        .tab-btn.active { background: var(--primary); color: #fff; }
+
+        /* Cards */
+        .card { background: var(--card-bg); border-radius: 16px; padding: 20px; border: 1px solid var(--card-border); margin-bottom: 16px; box-shadow: 0 4px 20px rgba(0,0,0,0.3); }
+        
+        .form-group { margin-bottom: 16px; }
+        label { display: block; font-size: 13px; font-weight: 600; color: #cbd5e1; margin-bottom: 6px; }
+        input[type="text"], input[type="number"], select, textarea {
+            width: 100%; padding: 12px 14px; border-radius: 10px; border: 1.5px solid var(--card-border); background: #0b1120; color: #fff; font-size: 15px; outline: none; transition: 0.2s;
+        }
+        input[type="text"]:focus, select:focus, textarea:focus { border-color: #38bdf8; }
+
+        /* File Upload Box */
+        .file-dropzone {
+            border: 2px dashed #475569; border-radius: 12px; padding: 22px 16px; text-align: center; background: #0b1120; cursor: pointer; transition: 0.2s;
+        }
+        .file-dropzone:hover { border-color: #38bdf8; background: #131d33; }
+        .file-dropzone input { display: none; }
+        .drop-icon { font-size: 32px; margin-bottom: 6px; }
+        .drop-title { font-size: 15px; font-weight: 700; color: #38bdf8; }
+        .drop-desc { font-size: 12px; color: var(--text-muted); margin-top: 4px; }
+
+        /* File Preview List */
+        .preview-list { margin-top: 12px; display: flex; flex-direction: column; gap: 8px; }
+        .preview-item { display: flex; align-items: center; justify-content: space-between; background: #0f172a; padding: 8px 12px; border-radius: 8px; border: 1px solid var(--card-border); font-size: 13px; }
+        .preview-thumb { width: 42px; height: 42px; border-radius: 6px; object-fit: cover; background: #334155; margin-right: 10px; }
+
+        /* Cropper Container */
+        #cropperModal { display: none; margin-top: 15px; background: #0b1120; padding: 14px; border-radius: 12px; border: 1px solid var(--card-border); }
+        .img-container { max-height: 280px; width: 100%; overflow: hidden; background: #000; border-radius: 8px; }
+        .crop-controls { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+        .crop-btn { padding: 6px 12px; background: #334155; color: #fff; border: none; border-radius: 6px; font-size: 12px; cursor: pointer; }
+        .crop-btn.active { background: #0284c7; }
+
+        /* Chips & Options */
+        .options-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+        .chip-group { display: flex; gap: 8px; }
+        .chip { flex: 1; text-align: center; padding: 10px; border-radius: 8px; border: 1.5px solid var(--card-border); background: #0b1120; font-size: 13px; font-weight: 600; cursor: pointer; transition: 0.2s; }
+        .chip.active { border-color: #38bdf8; background: rgba(56, 189, 248, 0.15); color: #38bdf8; }
+
+        /* Price Summary Bar */
+        .price-card { background: linear-gradient(135deg, #1e293b, #0f172a); border: 1.5px solid #0284c7; border-radius: 14px; padding: 16px; margin-top: 16px; }
+        .price-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; font-size: 13px; color: var(--text-muted); }
+        .price-total { font-size: 22px; font-weight: 800; color: #4ade80; }
+
+        /* Submit Button */
+        .btn-submit { width: 100%; padding: 16px; background: #0284c7; color: white; border: none; border-radius: 12px; font-size: 16px; font-weight: 800; cursor: pointer; transition: 0.2s; box-shadow: 0 4px 15px rgba(2, 132, 199, 0.4); margin-top: 15px; }
+        .btn-submit:disabled { background: #475569; box-shadow: none; cursor: not-allowed; }
+
+        /* Progress & Status */
+        .progress-box { margin-top: 14px; display: none; background: #334155; border-radius: 8px; overflow: hidden; height: 12px; }
+        .progress-bar { width: 0%; height: 100%; background: #22c55e; transition: width 0.15s; }
+        .alert { margin-top: 14px; padding: 14px; border-radius: 10px; display: none; font-size: 14px; text-align: center; }
+        .alert-success { background: rgba(34, 197, 94, 0.2); border: 1px solid #22c55e; color: #4ade80; }
+        .alert-error { background: rgba(239, 68, 68, 0.2); border: 1px solid #ef4444; color: #f87171; }
     </style>
 </head>
-<body class="min-h-screen pb-12 flex flex-col items-center">
+<body>
+<div class="wrapper">
+    <div class="header">
+        <h1>🖨️ Aydin Print</h1>
+        <p>Transfer File Cepat & Auto Cetak Presisi</p>
+    </div>
 
-    <!-- Top Navigation Bar -->
-    <header class="w-full max-w-xl px-4 py-4 flex items-center justify-between border-b border-slate-800">
-        <div class="flex items-center space-x-3">
-            <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-sky-500 to-blue-600 flex items-center justify-center shadow-lg shadow-sky-500/20">
-                <i data-lucide="printer" class="w-6 h-6 text-white"></i>
+    <!-- Mode Switcher -->
+    <div class="tabs">
+        <button class="tab-btn active" id="tabDoc" onclick="switchMode('document')">📄 Dokumen / Fotocopy</button>
+        <button class="tab-btn" id="tabPhoto" onclick="switchMode('photo_custom')">📸 Pas Foto & Kustom</button>
+    </div>
+
+    <form id="mainForm">
+        <div class="card">
+            <div class="form-group">
+                <label>👤 Nama Pemesan / Pelanggan:</label>
+                <input type="text" id="custName" placeholder="Contoh: Pak Budi / Rina" required>
             </div>
-            <div>
-                <h1 class="text-xl font-bold text-white tracking-wide">AYDIN PRINT</h1>
-                <p class="text-xs text-sky-400 font-medium">Layanan Cetak Cepat & Studio Pas Foto</p>
-            </div>
-        </div>
-        <a href="/admin" class="text-xs text-slate-400 hover:text-sky-400 px-3 py-1.5 rounded-lg border border-slate-700 bg-slate-800/60 transition flex items-center space-x-1">
-            <i data-lucide="shield-check" class="w-3.5 h-3.5"></i>
-            <span>Kasir</span>
-        </a>
-    </header>
 
-    <main class="w-full max-w-xl px-4 mt-4 space-y-4">
-
-        <!-- Mode Switcher Tabs -->
-        <div class="grid grid-cols-2 gap-2 p-1 bg-slate-900/90 rounded-2xl border border-slate-800">
-            <button id="tabDoc" onclick="switchMode('document')" class="py-3 px-3 rounded-xl font-semibold text-sm transition flex items-center justify-center space-x-2 bg-sky-600 text-white shadow-md shadow-sky-600/30">
-                <i data-lucide="file-text" class="w-4 h-4"></i>
-                <span>Dokumen / Fotocopy</span>
-            </button>
-            <button id="tabPhoto" onclick="switchMode('photo_custom')" class="py-3 px-3 rounded-xl font-semibold text-sm transition flex items-center justify-center space-x-2 text-slate-400 hover:text-white">
-                <i data-lucide="image" class="w-4 h-4"></i>
-                <span>Foto & Kustom Studio</span>
-            </button>
-        </div>
-
-        <form id="orderForm" class="space-y-4">
-
-            <!-- ================= MODE 1: DOKUMEN & FOTOCOPY ================= -->
-            <div id="sectionDocument" class="space-y-4">
-                <!-- File Upload Box -->
-                <div class="glass-card p-5 rounded-2xl">
-                    <label class="block text-sm font-semibold text-slate-200 mb-2">Pilih File Dokumen (PDF, Word, Gambar)</label>
-                    <div id="docDropZone" onclick="document.getElementById('docFileInput').click()" class="border-2 border-dashed border-slate-700 hover:border-sky-500 rounded-xl p-6 text-center cursor-pointer transition bg-slate-900/40">
-                        <input type="file" id="docFileInput" multiple accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.jpg,.jpeg,.png,.webp,.txt" class="hidden" onchange="handleDocFiles(this.files)">
-                        <div class="w-12 h-12 mx-auto mb-2 rounded-full bg-slate-800 flex items-center justify-center text-sky-400">
-                            <i data-lucide="upload-cloud" class="w-6 h-6"></i>
-                        </div>
-                        <p class="text-sm font-medium text-slate-200">Ketuk untuk Pilih File</p>
-                        <p class="text-xs text-slate-400 mt-1">Bisa pilih banyak file sekaligus</p>
+            <!-- MODE DOKUMEN -->
+            <div id="sectionDoc">
+                <div class="form-group">
+                    <label>📂 Pilih File Dokumen / Gambar (PDF, Word, JPG, PNG):</label>
+                    <div class="file-dropzone" onclick="document.getElementById('docFiles').click()">
+                        <div class="drop-icon">📑</div>
+                        <div class="drop-title">Ketuk untuk Pilih File</div>
+                        <div class="drop-desc">Bisa pilih banyak file sekaligus</div>
                     </div>
-
-                    <!-- File Preview List -->
-                    <div id="docPreviewList" class="mt-4 space-y-2 hidden"></div>
+                    <input type="file" id="docFiles" multiple onchange="handleDocFiles(this)">
+                    <div class="preview-list" id="docPreviewList"></div>
                 </div>
 
-                <!-- Document Print Settings -->
-                <div class="glass-card p-5 rounded-2xl space-y-4">
-                    <h3 class="text-sm font-bold text-slate-300 flex items-center space-x-2">
-                        <i data-lucide="sliders" class="w-4 h-4 text-sky-400"></i>
-                        <span>Pengaturan Cetak Dokumen</span>
-                    </h3>
+                <div class="options-grid">
+                    <div class="form-group">
+                        <label>Warna Cetak:</label>
+                        <div class="chip-group">
+                            <div class="chip active" id="chipColor" onclick="setColorMode('COLOR')">🌈 Warna</div>
+                            <div class="chip" id="chipBw" onclick="setColorMode('BW')">⚫ Hitam Putih</div>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label>Cetak Bolak-Balik (Duplex):</label>
+                        <div class="chip-group">
+                            <div class="chip active" id="chipSimplex" onclick="setDuplex(false)">1 Sisi</div>
+                            <div class="chip" id="chipDuplex" onclick="setDuplex(true)">Bolak-Balik</div>
+                        </div>
+                    </div>
+                </div>
 
-                    <!-- Paper Selector -->
-                    <div>
-                        <label class="block text-xs font-semibold text-slate-400 mb-1.5">Jenis Kertas</label>
-                        <select id="docPaperSelect" onchange="recalculatePrice()" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2.5 text-sm text-white focus:border-sky-500 focus:outline-none">
+                <div class="options-grid">
+                    <div class="form-group">
+                        <label>Pilihan Kertas:</label>
+                        <select id="docPaperSelect" onchange="recalculatePrice()">
                             {% for p in db.papers %}
                             <option value="{{ p.id }}">{{ p.name }}</option>
                             {% endfor %}
                         </select>
                     </div>
-
-                    <!-- Color Mode & Duplex -->
-                    <div class="grid grid-cols-2 gap-3">
-                        <div>
-                            <label class="block text-xs font-semibold text-slate-400 mb-1.5">Mode Warna</label>
-                            <select id="docColorMode" onchange="recalculatePrice()" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2.5 text-sm text-white focus:border-sky-500 focus:outline-none">
-                                <option value="BW">Hitam Putih (B/W)</option>
-                                <option value="COLOR">Full Color</option>
-                            </select>
-                        </div>
-                        <div>
-                            <label class="block text-xs font-semibold text-slate-400 mb-1.5">Duplex (Bolak-Balik)</label>
-                            <select id="docDuplex" onchange="recalculatePrice()" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2.5 text-sm text-white focus:border-sky-500 focus:outline-none">
-                                <option value="false">1 Sisi Saja</option>
-                                <option value="true">Bolak-Balik (2 Sisi)</option>
-                            </select>
-                        </div>
+                    <div class="form-group">
+                        <label>Jumlah Lembar / Rangkap:</label>
+                        <input type="number" id="docQty" min="1" value="1" oninput="recalculatePrice()">
                     </div>
+                </div>
 
-                    <!-- Quantity / Copy Count -->
-                    <div>
-                        <label class="block text-xs font-semibold text-slate-400 mb-1.5">Jumlah Rangkap / Copy</label>
-                        <div class="flex items-center space-x-3">
-                            <button type="button" onclick="adjustDocQty(-1)" class="w-10 h-10 rounded-xl bg-slate-800 text-white font-bold text-lg hover:bg-slate-700 border border-slate-700">-</button>
-                            <input type="number" id="docQuantity" value="1" min="1" onchange="recalculatePrice()" class="flex-1 bg-slate-900 border border-slate-700 rounded-xl py-2.5 text-center font-bold text-white focus:border-sky-500 focus:outline-none">
-                            <button type="button" onclick="adjustDocQty(1)" class="w-10 h-10 rounded-xl bg-slate-800 text-white font-bold text-lg hover:bg-slate-700 border border-slate-700">+</button>
-                        </div>
+                <div class="form-group">
+                    <label>Aksesoris Tambahan (Opsional):</label>
+                    <select id="docAccessorySelect" onchange="recalculatePrice()">
+                        <option value="">-- Tanpa Aksesoris --</option>
+                        {% for a in db.accessories %}
+                        <option value="{{ a.id }}">{{ a.name }} (+Rp {{ '{:,}'.format(a.selling_price) }})</option>
+                        {% endfor %}
+                    </select>
+                </div>
+            </div>
+
+            <!-- MODE PAS FOTO & KUSTOM TEMPLATE -->
+            <div id="sectionPhoto" style="display:none;">
+                <div class="form-group">
+                    <label>Pilih Preset Ukuran / Template:</label>
+                    <select id="photoPresetSelect" onchange="handlePresetChange()">
+                        {% for pr in db.presets %}
+                        <option value="{{ pr.id }}" data-w="{{ pr.photo_width_mm }}" data-h="{{ pr.photo_height_mm }}" data-paper="{{ pr.paper_id }}" data-acc="{{ pr.accessory_id or '' }}">{{ pr.name }} ({{ pr.category }})</option>
+                        {% endfor %}
+                        <option value="custom">📐 Custom Ukuran Bebas (mm)</option>
+                    </select>
+                </div>
+
+                <div class="options-grid" id="customSizeBox" style="display:none;">
+                    <div class="form-group">
+                        <label>Lebar Foto (mm):</label>
+                        <input type="number" id="customW" value="28" oninput="updateCropRatio(); recalculatePrice();">
                     </div>
+                    <div class="form-group">
+                        <label>Tinggi Foto (mm):</label>
+                        <input type="number" id="customH" value="38" oninput="updateCropRatio(); recalculatePrice();">
+                    </div>
+                </div>
 
-                    <!-- Accessories -->
-                    <div>
-                        <label class="block text-xs font-semibold text-slate-400 mb-1.5">Aksesoris / Jilid (Opsional)</label>
-                        <select id="docAccessorySelect" onchange="recalculatePrice()" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2.5 text-sm text-white focus:border-sky-500 focus:outline-none">
-                            <option value="">Tanpa Aksesoris</option>
-                            {% for a in db.accessories %}
-                            <option value="{{ a.id }}">{{ a.name }} (+Rp {{ a.selling_price }})</option>
+                <div class="form-group">
+                    <label>📸 Upload Foto yang Mau Dicetak:</label>
+                    <div class="file-dropzone" onclick="document.getElementById('photoFile').click()">
+                        <div class="drop-icon">🖼️</div>
+                        <div class="drop-title">Pilih Foto dari Galeri / Kamera</div>
+                        <div class="drop-desc">Format JPG, PNG, WebP</div>
+                    </div>
+                    <input type="file" id="photoFile" accept="image/*" onchange="handlePhotoSelect(this)">
+                </div>
+
+                <!-- Interactive Cropper -->
+                <div id="cropperModal">
+                    <label style="color:#38bdf8;">✂️ Geser / Zoom / Posisikan Bagian Foto:</label>
+                    <div class="img-container">
+                        <img id="imageToCrop" src="" alt="Crop Image">
+                    </div>
+                    <div class="crop-controls">
+                        <button type="button" class="crop-btn" onclick="cropper.zoom(0.1)">🔍 Zoom In</button>
+                        <button type="button" class="crop-btn" onclick="cropper.zoom(-0.1)">🔍 Zoom Out</button>
+                        <button type="button" class="crop-btn" onclick="cropper.rotate(90)">🔄 Putar</button>
+                        <button type="button" class="crop-btn" onclick="cropper.reset()">♻️ Reset</button>
+                    </div>
+                </div>
+
+                <div class="options-grid" style="margin-top:12px;">
+                    <div class="form-group">
+                        <label>Jumlah Foto (Pcs):</label>
+                        <input type="number" id="photoQty" min="1" value="4" oninput="recalculatePrice()">
+                    </div>
+                    <div class="form-group">
+                        <label>Kertas Cetak:</label>
+                        <select id="photoPaperSelect" onchange="recalculatePrice()">
+                            {% for p in db.papers %}
+                            <option value="{{ p.id }}" {% if p.size == 'A4' and 'Photo' in p.name %}selected{% endif %}>{{ p.name }}</option>
                             {% endfor %}
                         </select>
                     </div>
                 </div>
-            </div>
 
-            <!-- ================= MODE 2: FOTO & KUSTOM STUDIO ================= -->
-            <div id="sectionPhoto" class="space-y-4 hidden">
-                <!-- Image Upload & Crop Box -->
-                <div class="glass-card p-5 rounded-2xl">
-                    <label class="block text-sm font-semibold text-slate-200 mb-2">Upload Foto</label>
-                    <div id="photoDropZone" onclick="document.getElementById('photoFileInput').click()" class="border-2 border-dashed border-slate-700 hover:border-sky-500 rounded-xl p-6 text-center cursor-pointer transition bg-slate-900/40">
-                        <input type="file" id="photoFileInput" accept="image/*" class="hidden" onchange="handlePhotoFile(this.files)">
-                        <div class="w-12 h-12 mx-auto mb-2 rounded-full bg-slate-800 flex items-center justify-center text-sky-400">
-                            <i data-lucide="image-plus" class="w-6 h-6"></i>
-                        </div>
-                        <p class="text-sm font-medium text-slate-200">Ketuk untuk Pilih Foto</p>
-                        <p class="text-xs text-slate-400 mt-1">Dukung format JPG, PNG, WebP</p>
-                    </div>
-
-                    <!-- Cropper Container -->
-                    <div id="cropperWrapper" class="mt-4 hidden space-y-3">
-                        <div class="relative max-h-80 w-full overflow-hidden rounded-xl border border-slate-700 bg-black">
-                            <img id="cropperImage" class="max-w-full block" alt="Source Crop">
-                        </div>
-
-                        <!-- Cropper Controls -->
-                        <div class="flex items-center justify-center space-x-2 py-1">
-                            <button type="button" onclick="cropperZoom(0.1)" class="p-2 rounded-lg bg-slate-800 text-slate-200 hover:bg-slate-700 border border-slate-700" title="Perbesar">
-                                <i data-lucide="zoom-in" class="w-4 h-4"></i>
-                            </button>
-                            <button type="button" onclick="cropperZoom(-0.1)" class="p-2 rounded-lg bg-slate-800 text-slate-200 hover:bg-slate-700 border border-slate-700" title="Perkecil">
-                                <i data-lucide="zoom-out" class="w-4 h-4"></i>
-                            </button>
-                            <button type="button" onclick="cropperRotate(-90)" class="p-2 rounded-lg bg-slate-800 text-slate-200 hover:bg-slate-700 border border-slate-700" title="Putar Kiri">
-                                <i data-lucide="rotate-ccw" class="w-4 h-4"></i>
-                            </button>
-                            <button type="button" onclick="cropperRotate(90)" class="p-2 rounded-lg bg-slate-800 text-slate-200 hover:bg-slate-700 border border-slate-700" title="Putar Kanan">
-                                <i data-lucide="rotate-cw" class="w-4 h-4"></i>
-                            </button>
-                            <button type="button" onclick="cropperReset()" class="p-2 rounded-lg bg-slate-800 text-slate-200 hover:bg-slate-700 border border-slate-700" title="Reset">
-                                <i data-lucide="refresh-ccw" class="w-4 h-4"></i>
-                            </button>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Preset & Custom Sizing -->
-                <div class="glass-card p-5 rounded-2xl space-y-4">
-                    <h3 class="text-sm font-bold text-slate-300 flex items-center space-x-2">
-                        <i data-lucide="scissors" class="w-4 h-4 text-sky-400"></i>
-                        <span>Pilih Ukuran & Preset Produk</span>
-                    </h3>
-
-                    <!-- Presets Grid -->
-                    <div class="grid grid-cols-2 sm:grid-cols-3 gap-2" id="presetButtonsContainer">
-                        {% for pr in db.presets %}
-                        <button type="button" onclick="selectPreset('{{ pr.id }}', {{ pr.photo_width_mm }}, {{ pr.photo_height_mm }}, '{{ pr.name }}', {{ pr.paper_id or 3 }}, '{{ pr.accessory_id or '' }}')" data-preset-id="{{ pr.id }}" class="preset-btn p-3 rounded-xl border border-slate-700 bg-slate-900/80 text-left hover:border-sky-500 transition">
-                            <div class="text-xs font-bold text-white leading-tight">{{ pr.name }}</div>
-                            <div class="text-[11px] text-sky-400 mt-1">{{ pr.photo_width_mm }}x{{ pr.photo_height_mm }} mm</div>
-                            {% if pr.suggested_price %}
-                            <div class="text-[10px] text-emerald-400 mt-0.5">Rp {{ pr.suggested_price }}/paket</div>
-                            {% elif pr.price_per_pcs %}
-                            <div class="text-[10px] text-emerald-400 mt-0.5">Rp {{ pr.price_per_pcs }}/pcs</div>
-                            {% endif %}
-                        </button>
+                <div class="form-group">
+                    <label>Aksesoris / Casing (Opsional):</label>
+                    <select id="photoAccessorySelect" onchange="recalculatePrice()">
+                        <option value="">-- Tanpa Aksesoris --</option>
+                        {% for a in db.accessories %}
+                        <option value="{{ a.id }}">{{ a.name }} (+Rp {{ '{:,}'.format(a.selling_price) }})</option>
                         {% endfor %}
-
-                        <button type="button" onclick="selectCustomPreset()" id="btnCustomPreset" class="preset-btn p-3 rounded-xl border border-slate-700 bg-slate-900/80 text-left hover:border-sky-500 transition">
-                            <div class="text-xs font-bold text-amber-400 leading-tight">Ukuran Kustom</div>
-                            <div class="text-[11px] text-slate-400 mt-1">Bebas P x L</div>
-                        </button>
-                    </div>
-
-                    <!-- Custom Dimensions Input (Hidden by default) -->
-                    <div id="customDimensionsBox" class="hidden p-3 rounded-xl bg-slate-900/90 border border-amber-500/30 space-y-2">
-                        <label class="block text-xs font-bold text-amber-400">Tentukan Ukuran (dalam milimeter / mm):</label>
-                        <div class="grid grid-cols-2 gap-3">
-                            <div>
-                                <label class="text-[11px] text-slate-400">Lebar (mm)</label>
-                                <input type="number" id="customWidthMm" value="28" min="5" max="300" onchange="onCustomDimensionChange()" class="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white focus:border-amber-500 focus:outline-none">
-                            </div>
-                            <div>
-                                <label class="text-[11px] text-slate-400">Tinggi (mm)</label>
-                                <input type="number" id="customHeightMm" value="38" min="5" max="420" onchange="onCustomDimensionChange()" class="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white focus:border-amber-500 focus:outline-none">
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Photo Quantity (Pcs) -->
-                    <div>
-                        <label class="block text-xs font-semibold text-slate-400 mb-1.5">Jumlah Foto (Pcs / Lembar Jadi)</label>
-                        <div class="flex items-center space-x-3">
-                            <button type="button" onclick="adjustPhotoQty(-1)" class="w-10 h-10 rounded-xl bg-slate-800 text-white font-bold text-lg hover:bg-slate-700 border border-slate-700">-</button>
-                            <input type="number" id="photoQuantity" value="2" min="1" onchange="recalculatePrice()" class="flex-1 bg-slate-900 border border-slate-700 rounded-xl py-2.5 text-center font-bold text-white focus:border-sky-500 focus:outline-none">
-                            <button type="button" onclick="adjustPhotoQty(1)" class="w-10 h-10 rounded-xl bg-slate-800 text-white font-bold text-lg hover:bg-slate-700 border border-slate-700">+</button>
-                        </div>
-                        <div class="flex items-center space-x-2 mt-2">
-                            <button type="button" onclick="setPhotoQty(2)" class="text-xs px-2.5 py-1 rounded bg-slate-800 text-slate-300 hover:bg-slate-700">2 pcs</button>
-                            <button type="button" onclick="setPhotoQty(4)" class="text-xs px-2.5 py-1 rounded bg-slate-800 text-slate-300 hover:bg-slate-700">4 pcs</button>
-                            <button type="button" onclick="setPhotoQty(8)" class="text-xs px-2.5 py-1 rounded bg-slate-800 text-slate-300 hover:bg-slate-700">8 pcs</button>
-                            <button type="button" onclick="setPhotoQty(16)" class="text-xs px-2.5 py-1 rounded bg-slate-800 text-slate-300 hover:bg-slate-700">16 pcs</button>
-                        </div>
-                    </div>
-
-                    <!-- Photo Paper & Accessory Selection -->
-                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                        <div>
-                            <label class="block text-xs font-semibold text-slate-400 mb-1.5">Kertas Foto</label>
-                            <select id="photoPaperSelect" onchange="recalculatePrice()" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2.5 text-sm text-white focus:border-sky-500 focus:outline-none">
-                                {% for p in db.papers %}
-                                <option value="{{ p.id }}" {% if p.size == 'A4' and 'Glossy' in p.name %}selected{% endif %}>{{ p.name }}</option>
-                                {% endfor %}
-                            </select>
-                        </div>
-                        <div>
-                            <label class="block text-xs font-semibold text-slate-400 mb-1.5">Aksesoris Tambahan</label>
-                            <select id="photoAccessorySelect" onchange="recalculatePrice()" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2.5 text-sm text-white focus:border-sky-500 focus:outline-none">
-                                <option value="">Tanpa Aksesoris</option>
-                                {% for a in db.accessories %}
-                                <option value="{{ a.id }}">{{ a.name }} (+Rp {{ a.selling_price }})</option>
-                                {% endfor %}
-                            </select>
-                        </div>
-                    </div>
+                    </select>
                 </div>
             </div>
 
-            <!-- ================= INFORMASI PEMESAN & SUMMARY ================= -->
-            <div class="glass-card p-5 rounded-2xl space-y-4">
-                <h3 class="text-sm font-bold text-slate-300 flex items-center space-x-2">
-                    <i data-lucide="user" class="w-4 h-4 text-sky-400"></i>
-                    <span>Informasi Pemesan</span>
-                </h3>
+            <div class="form-group">
+                <label>Catatan Tambahan untuk Kasir (Opsional):</label>
+                <textarea id="orderNote" rows="2" placeholder="Contoh: Halaman 1-4 saja, potong rapi, dll"></textarea>
+            </div>
 
-                <div>
-                    <label class="block text-xs font-semibold text-slate-400 mb-1.5">Nama Anda / Pemesan <span class="text-rose-500">*</span></label>
-                    <input type="text" id="custName" required placeholder="Contoh: Pak Budi / Rina" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3.5 py-3 text-sm text-white placeholder-slate-500 focus:border-sky-500 focus:outline-none">
+            <!-- Price Breakdown Summary -->
+            <div class="price-card">
+                <div class="price-row">
+                    <span>Estimasi Biaya Cetak:</span>
+                    <span id="labelPrintCost">Rp 0</span>
                 </div>
-
-                <div>
-                    <label class="block text-xs font-semibold text-slate-400 mb-1.5">Catatan Khusus (Opsional)</label>
-                    <input type="text" id="custNotes" placeholder="Misal: Halaman 1-5 saja, laminasi rapi, dll" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3.5 py-2.5 text-sm text-white placeholder-slate-500 focus:border-sky-500 focus:outline-none">
+                <div class="price-row" id="rowAccessory" style="display:none;">
+                    <span>Aksesoris Tambahan:</span>
+                    <span id="labelAccessoryCost">Rp 0</span>
                 </div>
-
-                <!-- Price Breakdown Box -->
-                <div class="p-4 rounded-xl bg-slate-900/90 border border-slate-800 space-y-2">
-                    <div class="flex items-center justify-between text-xs text-slate-400">
-                        <span>Biaya Cetak</span>
-                        <span id="labelPrintCost" class="font-medium text-slate-200">Rp 0</span>
-                    </div>
-                    <div id="rowAccessoryCost" class="flex items-center justify-between text-xs text-slate-400 hidden">
-                        <span id="labelAccessoryName">Aksesoris</span>
-                        <span id="labelAccessoryPrice" class="font-medium text-slate-200">Rp 0</span>
-                    </div>
-                    <div class="flex items-center justify-between text-xs text-slate-400">
-                        <span>Estimasi Kertas</span>
-                        <span id="labelSheetsNeeded" class="font-medium text-slate-200">1 Lembar</span>
-                    </div>
-                    <div class="pt-2 border-t border-slate-800 flex items-center justify-between">
-                        <span class="text-sm font-bold text-white">Total Bayar:</span>
-                        <span id="labelTotalPrice" class="text-xl font-extrabold text-sky-400">Rp 0</span>
-                    </div>
-                </div>
-
-                <!-- Upload Button -->
-                <button type="submit" id="btnSubmitOrder" class="w-full py-4 px-6 rounded-xl bg-gradient-to-r from-sky-500 to-blue-600 hover:from-sky-400 hover:to-blue-500 text-white font-bold text-base shadow-lg shadow-sky-500/25 flex items-center justify-center space-x-2 transition disabled:opacity-50 disabled:cursor-not-allowed">
-                    <i data-lucide="send" class="w-5 h-5"></i>
-                    <span>Kirim Pesanan Sekarang</span>
-                </button>
-
-                <!-- Upload Progress -->
-                <div id="uploadProgressBox" class="hidden space-y-1.5 pt-2">
-                    <div class="flex items-center justify-between text-xs text-slate-400">
-                        <span id="uploadProgressText">Mengupload...</span>
-                        <span id="uploadProgressPct">0%</span>
-                    </div>
-                    <div class="w-full h-2.5 bg-slate-800 rounded-full overflow-hidden">
-                        <div id="uploadProgressBar" class="h-full bg-gradient-to-r from-sky-400 to-emerald-400 w-0 transition-all duration-150"></div>
-                    </div>
+                <div class="price-row" style="margin-top:8px; border-top:1px dashed var(--card-border); padding-top:8px;">
+                    <span style="font-weight:700; color:#fff;">Total Estimasi:</span>
+                    <span class="price-total" id="labelTotalPrice">Rp 0</span>
                 </div>
             </div>
 
-        </form>
-
-    </main>
-
-    <!-- Success Modal -->
-    <div id="successModal" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
-        <div class="glass-card max-w-sm w-full p-6 rounded-2xl text-center space-y-4 border border-emerald-500/30">
-            <div class="w-16 h-16 rounded-full bg-emerald-500/20 text-emerald-400 flex items-center justify-center mx-auto shadow-lg shadow-emerald-500/20">
-                <i data-lucide="check-circle" class="w-10 h-10"></i>
-            </div>
-            <div>
-                <h3 class="text-lg font-bold text-white">Pesanan Berhasil Terkirim!</h3>
-                <p class="text-xs text-slate-400 mt-1">File Anda sudah masuk ke komputer kasir secara otomatis.</p>
-            </div>
-            <div class="bg-slate-900/80 p-4 rounded-xl text-left text-xs space-y-1.5 border border-slate-800">
-                <div class="flex justify-between"><span class="text-slate-400">Pemesan:</span><span id="modalCustName" class="font-bold text-white">-</span></div>
-                <div class="flex justify-between"><span class="text-slate-400">Folder ID:</span><span id="modalFolderId" class="font-mono text-sky-400 text-[11px] truncate max-w-[180px]">-</span></div>
-                <div class="flex justify-between"><span class="text-slate-400">Total Biaya:</span><span id="modalTotalPay" class="font-bold text-emerald-400 text-sm">Rp 0</span></div>
-            </div>
-            <p class="text-xs text-amber-400 font-medium">💡 Silakan konfirmasi ke kasir untuk proses pencetakan.</p>
-            <button onclick="resetApp()" class="w-full py-3 bg-slate-800 hover:bg-slate-700 text-white rounded-xl text-sm font-semibold transition">Kirim Pesanan Baru</button>
+            <button type="submit" class="btn-submit" id="btnSubmit">🚀 Kirim File ke Kasir</button>
+            <div class="progress-box" id="pBox"><div class="progress-bar" id="pBar"></div></div>
+            <div class="alert" id="alertBox"></div>
         </div>
-    </div>
+    </form>
+</div>
 
-    <script>
-        lucide.createIcons();
+<script>
+let currentMode = 'document';
+let colorMode = 'COLOR';
+let isDuplex = false;
+let cropper = null;
+let currentEstimatedTotal = 0;
 
-        let currentMode = 'document';
-        let docFiles = [];
-        let photoFile = null;
-        let cropper = null;
-        let activePresetId = 'pasfoto_3x4';
-        let currentPhotoW = 28;
-        let currentPhotoH = 38;
-        let calculatedPrice = 0;
-        let detectedPdfPages = 1;
+function switchMode(mode) {
+    currentMode = mode;
+    document.getElementById('tabDoc').classList.toggle('active', mode === 'document');
+    document.getElementById('tabPhoto').classList.toggle('active', mode === 'photo_custom');
+    document.getElementById('sectionDoc').style.display = mode === 'document' ? 'block' : 'none';
+    document.getElementById('sectionPhoto').style.display = mode === 'photo_custom' ? 'block' : 'none';
+    recalculatePrice();
+}
 
-        function switchMode(mode) {
-            currentMode = mode;
-            const tabDoc = document.getElementById('tabDoc');
-            const tabPhoto = document.getElementById('tabPhoto');
-            const secDoc = document.getElementById('sectionDocument');
-            const secPhoto = document.getElementById('sectionPhoto');
+function setColorMode(mode) {
+    colorMode = mode;
+    document.getElementById('chipColor').classList.toggle('active', mode === 'COLOR');
+    document.getElementById('chipBw').classList.toggle('active', mode === 'BW');
+    recalculatePrice();
+}
 
-            if (mode === 'document') {
-                tabDoc.className = 'py-3 px-3 rounded-xl font-semibold text-sm transition flex items-center justify-center space-x-2 bg-sky-600 text-white shadow-md shadow-sky-600/30';
-                tabPhoto.className = 'py-3 px-3 rounded-xl font-semibold text-sm transition flex items-center justify-center space-x-2 text-slate-400 hover:text-white';
-                secDoc.classList.remove('hidden');
-                secPhoto.classList.add('hidden');
-            } else {
-                tabPhoto.className = 'py-3 px-3 rounded-xl font-semibold text-sm transition flex items-center justify-center space-x-2 bg-sky-600 text-white shadow-md shadow-sky-600/30';
-                tabDoc.className = 'py-3 px-3 rounded-xl font-semibold text-sm transition flex items-center justify-center space-x-2 text-slate-400 hover:text-white';
-                secPhoto.classList.remove('hidden');
-                secDoc.classList.add('hidden');
-                if (!cropper && photoFile) initCropper();
-            }
-            recalculatePrice();
-        }
+function setDuplex(val) {
+    isDuplex = val;
+    document.getElementById('chipSimplex').classList.toggle('active', !val);
+    document.getElementById('chipDuplex').classList.toggle('active', val);
+    recalculatePrice();
+}
 
-        // ================= DOKUMEN HANDLERS =================
-        async function handleDocFiles(files) {
-            docFiles = Array.from(files);
-            const listEl = document.getElementById('docPreviewList');
-            listEl.innerHTML = '';
-            listEl.classList.remove('hidden');
+function handleDocFiles(input) {
+    const list = document.getElementById('docPreviewList');
+    list.innerHTML = '';
+    if (input.files.length > 0) {
+        document.getElementById('docQty').value = input.files.length;
+        Array.from(input.files).forEach(f => {
+            const item = document.createElement('div');
+            item.className = 'preview-item';
+            item.innerHTML = '<span>📄 <b>' + f.name + '</b> (' + (f.size / 1024).toFixed(1) + ' KB)</span>';
+            list.appendChild(item);
+        });
+    }
+    recalculatePrice();
+}
 
-            detectedPdfPages = 0;
+function handlePresetChange() {
+    const select = document.getElementById('photoPresetSelect');
+    const opt = select.options[select.selectedIndex];
+    const isCustom = select.value === 'custom';
+    document.getElementById('customSizeBox').style.display = isCustom ? 'grid' : 'none';
 
-            for (let i = 0; i < docFiles.length; i++) {
-                const file = docFiles[i];
-                const item = document.createElement('div');
-                item.className = 'p-3 rounded-xl bg-slate-900 border border-slate-800 flex items-center space-x-3';
+    if (!isCustom) {
+        const paperId = opt.getAttribute('data-paper');
+        const accId = opt.getAttribute('data-acc');
+        if (paperId) document.getElementById('photoPaperSelect').value = paperId;
+        if (accId) document.getElementById('photoAccessorySelect').value = accId;
+    }
+    updateCropRatio();
+    recalculatePrice();
+}
 
-                let iconHtml = '<i data-lucide="file" class="w-6 h-6 text-slate-400"></i>';
-                let extraBadge = '';
+function getPhotoDimensions() {
+    const select = document.getElementById('photoPresetSelect');
+    if (select.value === 'custom') {
+        return {
+            w: parseFloat(document.getElementById('customW').value) || 28,
+            h: parseFloat(document.getElementById('customH').value) || 38
+        };
+    }
+    const opt = select.options[select.selectedIndex];
+    return {
+        w: parseFloat(opt.getAttribute('data-w')) || 28,
+        h: parseFloat(opt.getAttribute('data-h')) || 38
+    };
+}
 
-                if (file.type.startsWith('image/')) {
-                    const thumbUrl = URL.createObjectURL(file);
-                    iconHtml = '<img src="' + thumbUrl + '" class="w-10 h-10 object-cover rounded-lg border border-slate-700">';
-                    detectedPdfPages += 1;
-                } else if (file.type === 'application/pdf' || file.name.endsWith('.pdf')) {
-                    iconHtml = '<div class="w-10 h-10 rounded-lg bg-rose-500/20 text-rose-400 flex items-center justify-center font-bold text-xs">PDF</div>';
-                    try {
-                        const arrayBuffer = await file.arrayBuffer();
-                        const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
-                        extraBadge = '<span class="text-[10px] px-2 py-0.5 rounded bg-slate-800 text-sky-400 font-semibold">' + pdf.numPages + ' Hal</span>';
-                        detectedPdfPages += pdf.numPages;
-                    } catch (e) {
-                        detectedPdfPages += 1;
-                    }
-                } else {
-                    detectedPdfPages += 1;
-                }
+function updateCropRatio() {
+    if (!cropper) return;
+    const dims = getPhotoDimensions();
+    cropper.setAspectRatio(dims.w / dims.h);
+}
 
-                item.innerHTML = iconHtml + 
-                    '<div class="flex-1 min-w-0">' +
-                        '<div class="text-xs font-semibold text-slate-200 truncate">' + file.name + '</div>' +
-                        '<div class="text-[10px] text-slate-400">' + (file.size / 1024).toFixed(1) + ' KB</div>' +
-                    '</div>' + extraBadge;
+function handlePhotoSelect(input) {
+    if (input.files && input.files[0]) {
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            const img = document.getElementById('imageToCrop');
+            img.src = e.target.result;
+            document.getElementById('cropperModal').style.display = 'block';
 
-                listEl.appendChild(item);
-            }
-            if (detectedPdfPages === 0) detectedPdfPages = 1;
-            lucide.createIcons();
-            recalculatePrice();
-        }
-
-        function adjustDocQty(delta) {
-            const el = document.getElementById('docQuantity');
-            let val = parseInt(el.value) || 1;
-            val = Math.max(1, val + delta);
-            el.value = val;
-            recalculatePrice();
-        }
-
-        // ================= FOTO & CROPPER HANDLERS =================
-        function handlePhotoFile(files) {
-            if (!files || files.length === 0) return;
-            photoFile = files[0];
-            const dropZone = document.getElementById('photoDropZone');
-            const cropperWrapper = document.getElementById('cropperWrapper');
-            const imgEl = document.getElementById('cropperImage');
-
-            dropZone.classList.add('hidden');
-            cropperWrapper.classList.remove('hidden');
-
-            const reader = new FileReader();
-            reader.onload = function(e) {
-                imgEl.src = e.target.result;
-                initCropper();
-            };
-            reader.readAsDataURL(photoFile);
-        }
-
-        function initCropper() {
-            const imgEl = document.getElementById('cropperImage');
-            if (cropper) {
-                cropper.destroy();
-            }
-            const ratio = currentPhotoW / currentPhotoH;
-            cropper = new Cropper(imgEl, {
-                aspectRatio: ratio,
+            if (cropper) cropper.destroy();
+            const dims = getPhotoDimensions();
+            cropper = new Cropper(img, {
+                aspectRatio: dims.w / dims.h,
                 viewMode: 1,
                 autoCropArea: 0.9,
-                responsive: true,
-                restore: false,
-                guides: true,
-                center: true,
-                highlight: true,
-                cropBoxMovable: true,
-                cropBoxResizable: true,
-                toggleDragModeOnDblclick: false
+                responsive: true
             });
-        }
-
-        function selectPreset(presetId, wMm, hMm, name, paperId, accessoryId) {
-            activePresetId = presetId;
-            currentPhotoW = wMm;
-            currentPhotoH = hMm;
-
-            document.getElementById('customDimensionsBox').classList.add('hidden');
-            
-            // Highlight button
-            document.querySelectorAll('.preset-btn').forEach(btn => {
-                btn.classList.remove('border-sky-500', 'bg-sky-950/40');
-                if (btn.getAttribute('data-preset-id') === presetId) {
-                    btn.classList.add('border-sky-500', 'bg-sky-950/40');
-                }
-            });
-
-            if (paperId) document.getElementById('photoPaperSelect').value = paperId;
-            if (accessoryId) document.getElementById('photoAccessorySelect').value = accessoryId;
-
-            if (cropper) {
-                cropper.setAspectRatio(wMm / hMm);
-            }
-            recalculatePrice();
-        }
-
-        function selectCustomPreset() {
-            activePresetId = 'custom_crop';
-            document.getElementById('customDimensionsBox').classList.remove('hidden');
-            document.querySelectorAll('.preset-btn').forEach(btn => btn.classList.remove('border-sky-500', 'bg-sky-950/40'));
-            document.getElementById('btnCustomPreset').classList.add('border-sky-500', 'bg-sky-950/40');
-            onCustomDimensionChange();
-        }
-
-        function onCustomDimensionChange() {
-            const w = parseFloat(document.getElementById('customWidthMm').value) || 28;
-            const h = parseFloat(document.getElementById('customHeightMm').value) || 38;
-            currentPhotoW = w;
-            currentPhotoH = h;
-            if (cropper) {
-                cropper.setAspectRatio(w / h);
-            }
-            recalculatePrice();
-        }
-
-        function cropperZoom(ratio) { if (cropper) cropper.zoom(ratio); }
-        function cropperRotate(deg) { if (cropper) cropper.rotate(deg); }
-        function cropperReset() { if (cropper) cropper.reset(); }
-
-        function adjustPhotoQty(delta) {
-            const el = document.getElementById('photoQuantity');
-            let val = parseInt(el.value) || 1;
-            val = Math.max(1, val + delta);
-            el.value = val;
-            recalculatePrice();
-        }
-
-        function setPhotoQty(qty) {
-            document.getElementById('photoQuantity').value = qty;
-            recalculatePrice();
-        }
-
-        // ================= PRICE CALCULATION =================
-        async function recalculatePrice() {
-            const payload = {
-                mode: currentMode,
-                quantity: currentMode === 'document' ? parseInt(document.getElementById('docQuantity').value) || 1 : parseInt(document.getElementById('photoQuantity').value) || 1,
-                paper_id: parseInt(currentMode === 'document' ? document.getElementById('docPaperSelect').value : document.getElementById('photoPaperSelect').value),
-                color_mode: currentMode === 'document' ? document.getElementById('docColorMode').value : 'COLOR',
-                duplex: currentMode === 'document' ? (document.getElementById('docDuplex').value === 'true') : false,
-                accessory_id: currentMode === 'document' ? document.getElementById('docAccessorySelect').value : document.getElementById('photoAccessorySelect').value,
-                page_count: currentMode === 'document' ? detectedPdfPages : 1,
-                preset_id: activePresetId,
-                photo_w_mm: currentPhotoW,
-                photo_h_mm: currentPhotoH
-            };
-
-            try {
-                const res = await fetch('/api/calculate-price', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(payload)
-                });
-                if (res.ok) {
-                    const data = await res.json();
-                    calculatedPrice = data.total_price;
-                    document.getElementById('labelTotalPrice').innerText = 'Rp ' + data.total_price.toLocaleString('id-ID');
-                    document.getElementById('labelPrintCost').innerText = 'Rp ' + (data.total_price - (data.accessory_price_total || 0)).toLocaleString('id-ID');
-                    document.getElementById('labelSheetsNeeded').innerText = data.sheets_needed + ' Lembar' + (data.cut_fits_per_page > 1 ? ' (' + data.cut_fits_per_page + ' pcs/lbr)' : '');
-
-                    const accRow = document.getElementById('rowAccessoryCost');
-                    if (data.accessory_price_total > 0) {
-                        accRow.classList.remove('hidden');
-                        document.getElementById('labelAccessoryName').innerText = data.accessory_name || 'Aksesoris';
-                        document.getElementById('labelAccessoryPrice').innerText = 'Rp ' + data.accessory_price_total.toLocaleString('id-ID');
-                    } else {
-                        accRow.classList.add('hidden');
-                    }
-                }
-            } catch (e) {
-                console.error("Price calculation error:", e);
-            }
-        }
-
-        // ================= FORM SUBMISSION =================
-        document.getElementById('orderForm').onsubmit = async function(e) {
-            e.preventDefault();
-            const custName = document.getElementById('custName').value.trim();
-            if (!custName) {
-                alert("Harap masukkan nama pemesan.");
-                return;
-            }
-
-            const formData = new FormData();
-            formData.append('nama', custName);
-            formData.append('catatan', document.getElementById('custNotes').value.trim());
-            formData.append('mode', currentMode);
-            formData.append('total_price', calculatedPrice);
-
-            if (currentMode === 'document') {
-                if (docFiles.length === 0) {
-                    alert("Harap pilih minimal satu file dokumen!");
-                    return;
-                }
-                formData.append('quantity', document.getElementById('docQuantity').value);
-                formData.append('paper_id', document.getElementById('docPaperSelect').value);
-                formData.append('color_mode', document.getElementById('docColorMode').value);
-                formData.append('duplex', document.getElementById('docDuplex').value);
-                formData.append('accessory_id', document.getElementById('docAccessorySelect').value);
-
-                for (let f of docFiles) formData.append('files', f);
-            } else {
-                if (!photoFile) {
-                    alert("Harap upload foto terlebih dahulu!");
-                    return;
-                }
-                formData.append('quantity', document.getElementById('photoQuantity').value);
-                formData.append('paper_id', document.getElementById('photoPaperSelect').value);
-                formData.append('color_mode', 'COLOR');
-                formData.append('duplex', 'false');
-                formData.append('accessory_id', document.getElementById('photoAccessorySelect').value);
-                formData.append('photo_w_mm', currentPhotoW);
-                formData.append('photo_h_mm', currentPhotoH);
-                formData.append('preset_name', activePresetId);
-
-                if (cropper) {
-                    const cropData = cropper.getData(true);
-                    formData.append('crop_data', JSON.stringify(cropData));
-                }
-                formData.append('files', photoFile);
-            }
-
-            // UI Progress
-            const btn = document.getElementById('btnSubmitOrder');
-            const pBox = document.getElementById('uploadProgressBox');
-            const pBar = document.getElementById('uploadProgressBar');
-            const pPct = document.getElementById('uploadProgressPct');
-
-            btn.disabled = true;
-            btn.innerHTML = '<i data-lucide="loader" class="w-5 h-5 animate-spin"></i><span>Mengirim Pesanan...</span>';
-            pBox.classList.remove('hidden');
-            lucide.createIcons();
-
-            const xhr = new XMLHttpRequest();
-            xhr.open('POST', '/upload', true);
-
-            xhr.upload.onprogress = function(event) {
-                if (event.lengthComputable) {
-                    const pct = Math.round((event.loaded / event.total) * 100);
-                    pBar.style.width = pct + '%';
-                    pPct.innerText = pct + '%';
-                }
-            };
-
-            xhr.onload = function() {
-                btn.disabled = false;
-                btn.innerHTML = '<i data-lucide="send" class="w-5 h-5"></i><span>Kirim Pesanan Sekarang</span>';
-                pBox.classList.add('hidden');
-                lucide.createIcons();
-
-                if (xhr.status === 200) {
-                    const res = JSON.parse(xhr.responseText);
-                    document.getElementById('modalCustName').innerText = custName;
-                    document.getElementById('modalFolderId').innerText = res.folder;
-                    document.getElementById('modalTotalPay').innerText = 'Rp ' + res.total_price.toLocaleString('id-ID');
-                    document.getElementById('successModal').classList.remove('hidden');
-                } else {
-                    alert("Gagal mengirim pesanan. Silakan coba lagi.");
-                }
-            };
-
-            xhr.onerror = function() {
-                btn.disabled = false;
-                btn.innerHTML = '<i data-lucide="send" class="w-5 h-5"></i><span>Kirim Pesanan Sekarang</span>';
-                pBox.classList.add('hidden');
-                lucide.createIcons();
-                alert("Terjadi kesalahan jaringan.");
-            };
-
-            xhr.send(formData);
         };
+        reader.readAsDataURL(input.files[0]);
+    }
+}
 
-        function resetApp() {
-            window.location.reload();
-        }
+async function recalculatePrice() {
+    let payload = {};
+    if (currentMode === 'document') {
+        payload = {
+            mode: 'document',
+            quantity: parseInt(document.getElementById('docQty').value) || 1,
+            paper_id: parseInt(document.getElementById('docPaperSelect').value),
+            color_mode: colorMode,
+            duplex: isDuplex,
+            accessory_id: document.getElementById('docAccessorySelect').value || null
+        };
+    } else {
+        const dims = getPhotoDimensions();
+        const select = document.getElementById('photoPresetSelect');
+        payload = {
+            mode: 'photo_custom',
+            preset_id: select.value !== 'custom' ? select.value : null,
+            photo_w_mm: dims.w,
+            photo_h_mm: dims.h,
+            quantity: parseInt(document.getElementById('photoQty').value) || 1,
+            paper_id: parseInt(document.getElementById('photoPaperSelect').value),
+            accessory_id: document.getElementById('photoAccessorySelect').value || null
+        };
+    }
 
-        // Init default preset
-        window.addEventListener('DOMContentLoaded', () => {
-            selectPreset('pasfoto_3x4', 28, 38, 'Pas Foto 3x4 cm', 3, '');
-            recalculatePrice();
+    try {
+        const res = await fetch('/api/calculate-price', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
         });
-    </script>
+        const data = await res.json();
+        currentEstimatedTotal = data.total_price;
+
+        document.getElementById('labelPrintCost').innerText = 'Rp ' + data.print_cost_total.toLocaleString();
+        if (data.accessory_price_total > 0) {
+            document.getElementById('rowAccessory').style.display = 'flex';
+            document.getElementById('labelAccessoryCost').innerText = 'Rp ' + data.accessory_price_total.toLocaleString();
+        } else {
+            document.getElementById('rowAccessory').style.display = 'none';
+        }
+        document.getElementById('labelTotalPrice').innerText = 'Rp ' + data.total_price.toLocaleString();
+    } catch (e) {
+        console.error(e);
+    }
+}
+
+document.getElementById('mainForm').onsubmit = function(e) {
+    e.preventDefault();
+    const nama = document.getElementById('custName').value.trim();
+    if (!nama) return alert('Silakan masukkan nama pemesan.');
+
+    const formData = new FormData();
+    formData.append('nama', nama);
+    formData.append('mode', currentMode);
+    formData.append('catatan', document.getElementById('orderNote').value.trim());
+    formData.append('total_price', currentEstimatedTotal);
+
+    if (currentMode === 'document') {
+        const files = document.getElementById('docFiles').files;
+        if (files.length === 0) return alert('Silakan pilih minimal 1 file dokumen.');
+        for (let i = 0; i < files.length; i++) formData.append('files', files[i]);
+
+        formData.append('color_mode', colorMode);
+        formData.append('duplex', isDuplex);
+        formData.append('paper_id', document.getElementById('docPaperSelect').value);
+        formData.append('quantity', document.getElementById('docQty').value);
+        formData.append('accessory_id', document.getElementById('docAccessorySelect').value);
+    } else {
+        const photoInput = document.getElementById('photoFile');
+        if (!photoInput.files || photoInput.files.length === 0) return alert('Silakan upload foto terlebih dahulu.');
+        formData.append('files', photoInput.files[0]);
+
+        const dims = getPhotoDimensions();
+        formData.append('photo_w_mm', dims.w);
+        formData.append('photo_h_mm', dims.h);
+        formData.append('paper_id', document.getElementById('photoPaperSelect').value);
+        formData.append('quantity', document.getElementById('photoQty').value);
+        formData.append('accessory_id', document.getElementById('photoAccessorySelect').value);
+
+        if (cropper) {
+            formData.append('crop_data', JSON.stringify(cropper.getData(true)));
+        }
+    }
+
+    const btn = document.getElementById('btnSubmit');
+    const pBox = document.getElementById('pBox');
+    const pBar = document.getElementById('pBar');
+    const alertBox = document.getElementById('alertBox');
+
+    btn.disabled = true;
+    btn.innerText = 'Mengirim Pesanan...';
+    pBox.style.display = 'block';
+    alertBox.style.display = 'none';
+
+    const xhr = new XMLHttpRequest();
+    xhr.open('POST', '/upload', true);
+    xhr.upload.onprogress = (evt) => {
+        if (evt.lengthComputable) {
+            pBar.style.width = Math.round((evt.loaded / evt.total) * 100) + '%';
+        }
+    };
+    xhr.onload = () => {
+        btn.disabled = false;
+        btn.innerText = '🚀 Kirim File ke Kasir';
+        if (xhr.status === 200) {
+            const res = JSON.parse(xhr.responseText);
+            alertBox.className = 'alert alert-success';
+            alertBox.innerHTML = '🎉 <b>Pesanan Berhasil Dikirim!</b><br>Total Biaya: <b>Rp ' + res.total_price.toLocaleString() + '</b><br>Silakan infokan nama <b>' + nama + '</b> ke kasir.';
+            alertBox.style.display = 'block';
+            document.getElementById('mainForm').reset();
+            if (cropper) { cropper.destroy(); cropper = null; }
+            document.getElementById('cropperModal').style.display = 'none';
+            document.getElementById('docPreviewList').innerHTML = '';
+        } else {
+            alertBox.className = 'alert alert-error';
+            alertBox.innerText = '❌ Gagal mengirim pesanan. Silakan coba lagi.';
+            alertBox.style.display = 'block';
+        }
+    };
+    xhr.send(formData);
+};
+
+// Initial calculation
+recalculatePrice();
+</script>
 </body>
 </html>
