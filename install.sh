@@ -1,48 +1,59 @@
 #!/usr/bin/env bash
 # ==============================================================
-# AYDIN PRINT — Self-Service Print & Studio Auto Installer
-# Hotspot Wi-Fi 5GHz (QCA9377) & Web Server Autostart
-# Khusus Linux Aurora / Fedora Atomic / Ubuntu / Arch
+# Aydin Print Drop — Auto-Installer (Hotspot 5GHz & Web Studio)
+# Khusus Linux Aurora / Fedora Atomic / Ubuntu / Debian / Arch
 # ==============================================================
 
 set -e
 
 echo ""
 echo "╔════════════════════════════════════════════════════════════╗"
-echo "║          🖨️  MEMULAI INSTALASI AYDIN PRINT STUDIO         ║"
+echo "║          🖨️  MEMULAI INSTALASI AYDIN PRINT DROP            ║"
 echo "╚════════════════════════════════════════════════════════════╝"
 echo ""
 
 APP_DIR="$HOME/PrintDrop"
-RESULT_DIR="$HOME/Hasil_Print"
-TEMPLATES_DIR="$APP_DIR/templates"
+OUT_DIR="$HOME/Hasil_Print"
+SYSTEMD_USER_DIR="$HOME/.config/systemd/user"
 
-mkdir -p "$APP_DIR" "$RESULT_DIR" "$TEMPLATES_DIR"
+mkdir -p "$APP_DIR" "$APP_DIR/templates" "$APP_DIR/static" "$OUT_DIR" "$SYSTEMD_USER_DIR"
 
-# 1. Cek & Install Dependencies Python
-echo "▶ [1/5] Memasang Dependensi Python (Flask, Pillow, ReportLab, QRCode)..."
-pip3 install --user --upgrade flask pillow reportlab qrcode 2>/dev/null || pip install --user --upgrade flask pillow reportlab qrcode 2>/dev/null || true
-
-# 2. Download File Server & Template
-echo "▶ [2/5] Mengunduh komponen aplikasi Aydin Print..."
-curl -sSL https://raw.githubusercontent.com/Aydin04/print-drop/main/app.py -o "$APP_DIR/server.py"
+echo "📦 [1/5] Mengunduh berkas aplikasi dari GitHub..."
+curl -sSL https://raw.githubusercontent.com/Aydin04/print-drop/main/app.py -o "$APP_DIR/app.py"
 curl -sSL https://raw.githubusercontent.com/Aydin04/print-drop/main/database.py -o "$APP_DIR/database.py"
 curl -sSL https://raw.githubusercontent.com/Aydin04/print-drop/main/pdf_generator.py -o "$APP_DIR/pdf_generator.py"
-curl -sSL https://raw.githubusercontent.com/Aydin04/print-drop/main/hpp_engine.py -o "$APP_DIR/hpp_engine.py"
-curl -sSL https://raw.githubusercontent.com/Aydin04/print-drop/main/templates/index.html -o "$TEMPLATES_DIR/index.html"
-curl -sSL https://raw.githubusercontent.com/Aydin04/print-drop/main/templates/admin.html -o "$TEMPLATES_DIR/admin.html"
+curl -sSL https://raw.githubusercontent.com/Aydin04/print-drop/main/requirements.txt -o "$APP_DIR/requirements.txt"
+curl -sSL https://raw.githubusercontent.com/Aydin04/print-drop/main/templates/index.html -o "$APP_DIR/templates/index.html"
+curl -sSL https://raw.githubusercontent.com/Aydin04/print-drop/main/templates/admin.html -o "$APP_DIR/templates/admin.html"
 
-# 3. Setup Systemd Autostart Service
-echo "▶ [3/5] Mengatur Autostart Systemd..."
-mkdir -p "$HOME/.config/systemd/user"
-cat << 'EOF' > "$HOME/.config/systemd/user/printdrop.service"
+echo "🐍 [2/5] Memasang library Python yang dibutuhkan..."
+pip install --user -r "$APP_DIR/requirements.txt" || pip3 install --user -r "$APP_DIR/requirements.txt" || true
+
+echo "📶 [3/5] Mengkonfigurasi Hotspot Wi-Fi 5GHz (AYDIN-PRINT)..."
+WIFI_IFACE=$(nmcli device | grep wifi | awk '{print $1}' | head -n 1 || true)
+
+if [ -n "$WIFI_IFACE" ]; then
+    nmcli con delete "Hotspot-Print" 2>/dev/null || true
+    nmcli con add type wifi ifname "$WIFI_IFACE" con-name "Hotspot-Print" autoconnect yes ssid "AYDIN-PRINT"
+    nmcli con modify "Hotspot-Print" 802-11-wireless.mode ap 802-11-wireless.band a 802-11-wireless.channel 36 || true
+    nmcli con modify "Hotspot-Print" 802-11-wireless-security.key-mgmt wpa-psk 802-11-wireless-security.psk "aydinprint"
+    nmcli con modify "Hotspot-Print" ipv4.method shared ipv6.method ignore
+    nmcli con up "Hotspot-Print" || true
+    echo "✅ Hotspot 5GHz 'AYDIN-PRINT' berhasil dikonfigurasi & diaktifkan."
+else
+    echo "⚠️  Interface Wi-Fi tidak ditemukan. Anda dapat mengaktifkan Hotspot manual."
+fi
+
+echo "⚙️ [4/5] Memasang Service Autostart (systemd background service)..."
+cat << 'EOF' > "$SYSTEMD_USER_DIR/printdrop.service"
 [Unit]
-Description=Aydin Print Kasir & Server Studio
+Description=Aydin PrintDrop Web Studio Server
 After=network.target
 
 [Service]
+Type=simple
 WorkingDirectory=%h/PrintDrop
-ExecStart=/usr/bin/python3 %h/PrintDrop/server.py
+ExecStart=/usr/bin/python3 %h/PrintDrop/app.py
 Restart=always
 RestartSec=3
 
@@ -50,47 +61,20 @@ RestartSec=3
 WantedBy=default.target
 EOF
 
-systemctl --user daemon-reload
-systemctl --user enable printdrop.service
-systemctl --user restart printdrop.service
+systemctl --user daemon-reload || true
+systemctl --user enable --now printdrop.service || true
 
-# 4. Setup Hotspot 5GHz via NetworkManager (SSID: AYDIN-PRINT)
-echo "▶ [4/5] Mengonfigurasi Hotspot 5GHz (AYDIN-PRINT)..."
-WIFI_IFACE=$(nmcli -t -f DEVICE,TYPE dev | grep ':wifi$' | cut -d: -f1 | head -n 1)
-
-if [ -n "$WIFI_IFACE" ]; then
-    nmcli con delete "AYDIN-PRINT" 2>/dev/null || true
-    nmcli con delete "Hotspot-Print" 2>/dev/null || true
-    nmcli con add type wifi ifname "$WIFI_IFACE" con-name "AYDIN-PRINT" autoconnect yes ssid "AYDIN-PRINT" 2>/dev/null || true
-    nmcli con modify "AYDIN-PRINT" 802-11-wireless.mode ap 802-11-wireless.band a 802-11-wireless.channel 36 2>/dev/null || true
-    nmcli con modify "AYDIN-PRINT" 802-11-wireless-security.key-mgmt wpa-psk 802-11-wireless-security.psk "aydinprint" 2>/dev/null || true
-    nmcli con modify "AYDIN-PRINT" ipv4.method shared ipv6.method ignore 2>/dev/null || true
-    nmcli con up "AYDIN-PRINT" 2>/dev/null || true
-    echo "  -> Hotspot 5GHz 'AYDIN-PRINT' berhasil diaktifkan!"
-else
-    echo "  [!] Interface WiFi tidak ditemukan atau sedang dinonaktifkan."
-fi
-
-# 5. Generate QR Code Image untuk Meja Kasir
-echo "▶ [5/5] Menghasilkan QR Code Meja Kasir..."
-python3 - << 'EOF'
-import qrcode
-import os
-
-url = "http://10.42.0.1:5000"
-img = qrcode.make(url)
-img.save(os.path.expanduser("~/PrintDrop/QR_AYDIN_PRINT.png"))
-EOF
+echo "📷 [5/5] Membuat QR Code Meja Kasir..."
+python3 -c "import qrcode; img = qrcode.make('http://10.42.0.1:5000'); img.save('$APP_DIR/QR_MEJA_PRINT.png'); print('QR Code tersimpan di: $APP_DIR/QR_MEJA_PRINT.png')" 2>/dev/null || true
 
 echo ""
-echo "================================================================"
-echo "🎉 INSTALASI AYDIN PRINT SELESAI & SUKSES!"
-echo "================================================================"
-echo "📶 SSID Wi-Fi Hotspot : AYDIN-PRINT"
-echo "🔑 Password Wi-Fi     : aydinprint"
-echo "🌐 Web Pelanggan      : http://10.42.0.1:5000"
-echo "🛡️ Panel Kasir / Admin : http://10.42.0.1:5000/admin"
-echo "📁 Folder File Masuk  : $RESULT_DIR"
-echo "🖼️ Gambar QR Meja     : $APP_DIR/QR_AYDIN_PRINT.png"
-echo "================================================================"
+echo "╔════════════════════════════════════════════════════════════╗"
+echo "║          🎉 INSTALASI SELESAI & BERJALAN LANCAR!           ║"
+echo "╚════════════════════════════════════════════════════════════╝"
+echo "📶 SSID Wi-Fi    : AYDIN-PRINT"
+echo "🔑 Password      : aydinprint"
+echo "🌐 URL Pelanggan : http://10.42.0.1:5000"
+echo "⚙️ URL Panel HPP : http://10.42.0.1:5000/admin"
+echo "📂 Folder Hasil  : $OUT_DIR"
+echo "🖼️ QR Code Kasir : $APP_DIR/QR_MEJA_PRINT.png"
 echo ""
