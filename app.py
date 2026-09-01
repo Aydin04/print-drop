@@ -1,156 +1,253 @@
 import os
 import re
-import socket
-from flask import Flask, request, render_template_string, jsonify
+import json
+import time
+from datetime import datetime
+from flask import Flask, request, render_template, jsonify, send_from_directory
+from database import load_db, save_db
+from pdf_generator import generate_photo_layout_pdf
 
 app = Flask(__name__)
 BASE_DIR = os.path.expanduser("~/Hasil_Print")
 os.makedirs(BASE_DIR, exist_ok=True)
 
-HTML_PAGE = """<!DOCTYPE html>
-<html lang="id">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Kirim Dokumen Cetak</title>
-    <style>
-        * { box-sizing: border-box; margin: 0; padding: 0; font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
-        body { background: #0f172a; color: #f8fafc; min-height: 100vh; display: flex; justify-content: center; align-items: center; padding: 16px; }
-        .container { background: #1e293b; width: 100%; max-width: 440px; padding: 26px; border-radius: 16px; box-shadow: 0 10px 25px rgba(0,0,0,0.5); border: 1px solid #334155; }
-        .header { text-align: center; margin-bottom: 20px; }
-        .header h1 { font-size: 22px; color: #38bdf8; margin-bottom: 6px; }
-        .header p { font-size: 13px; color: #94a3b8; }
-        .form-group { margin-bottom: 16px; }
-        label { display: block; font-size: 14px; font-weight: 600; margin-bottom: 6px; color: #cbd5e1; }
-        input[type="text"] { width: 100%; padding: 12px; border-radius: 8px; border: 1.5px solid #475569; background: #0f172a; color: #fff; font-size: 15px; outline: none; }
-        input[type="text"]:focus { border-color: #38bdf8; }
-        .file-box { border: 2px dashed #475569; border-radius: 10px; padding: 22px; text-align: center; background: #0f172a; cursor: pointer; }
-        .file-box input { display: none; }
-        .file-label { color: #38bdf8; font-weight: bold; }
-        .file-info { font-size: 13px; color: #94a3b8; margin-top: 6px; }
-        button.btn { width: 100%; padding: 14px; background: #0284c7; color: white; border: none; border-radius: 8px; font-size: 16px; font-weight: bold; cursor: pointer; margin-top: 10px; transition: background 0.2s; }
-        button.btn:hover { background: #0369a1; }
-        button.btn:disabled { background: #475569; cursor: not-allowed; }
-        .progress-box { margin-top: 15px; display: none; background: #334155; border-radius: 6px; overflow: hidden; height: 10px; }
-        .progress-bar { width: 0%; height: 100%; background: #22c55e; transition: width 0.1s; }
-        .alert { margin-top: 15px; padding: 14px; border-radius: 8px; display: none; font-size: 14px; text-align: center; line-height: 1.5; }
-        .alert-success { background: rgba(34, 197, 94, 0.2); border: 1px solid #22c55e; color: #4ade80; }
-        .alert-error { background: rgba(239, 68, 68, 0.2); border: 1px solid #ef4444; color: #f87171; }
-    </style>
-</head>
-<body>
-<div class="container">
-    <div class="header">
-        <h1>🖨️ Kirim File Cetak</h1>
-        <p>File langsung terkirim cepat ke komputer kasir</p>
-    </div>
-    <form id="uploadForm">
-        <div class="form-group">
-            <label>Nama Anda / No. Antrian:</label>
-            <input type="text" id="nama" name="nama" placeholder="Contoh: Pak Budi" required autocomplete="name">
-        </div>
-        <div class="form-group">
-            <label>Pilih File Dokumen / Foto:</label>
-            <div class="file-box" onclick="document.getElementById('fileInput').click()">
-                <div class="file-label">📁 Ketuk untuk Pilih File</div>
-                <input type="file" id="fileInput" name="files" multiple required onchange="onFileSelected()">
-                <div class="file-info" id="fileInfo">Bisa pilih banyak file sekaligus (PDF, Word, JPG, dll)</div>
-            </div>
-        </div>
-        <button type="submit" class="btn" id="btnSubmit">🚀 Kirim File ke Kasir</button>
-    </form>
-    <div class="progress-box" id="pBox"><div class="progress-bar" id="pBar"></div></div>
-    <div class="alert" id="alertBox"></div>
-</div>
-<script>
-    function onFileSelected() {
-        const input = document.getElementById('fileInput');
-        const info = document.getElementById('fileInfo');
-        if (input.files.length > 0) info.innerHTML = "<b>" + input.files.length + " file dipilih</b>";
-    }
-    document.getElementById('uploadForm').onsubmit = function(e) {
-        e.preventDefault();
-        const nama = document.getElementById('nama').value.trim();
-        const files = document.getElementById('fileInput').files;
-        if (!nama || files.length === 0) return;
-
-        const formData = new FormData();
-        formData.append('nama', nama);
-        for(let i=0; i<files.length; i++) formData.append('files', files[i]);
-
-        const btn = document.getElementById('btnSubmit');
-        const pBox = document.getElementById('pBox');
-        const pBar = document.getElementById('pBar');
-        const alertBox = document.getElementById('alertBox');
-
-        btn.disabled = true;
-        btn.innerText = 'Mengirim...';
-        pBox.style.display = 'block';
-        alertBox.style.display = 'none';
-
-        const xhr = new XMLHttpRequest();
-        xhr.open('POST', '/upload', true);
-        xhr.upload.onprogress = (e) => {
-            if (e.lengthComputable) pBar.style.width = Math.round((e.loaded / e.total) * 100) + '%';
-        };
-        xhr.onload = () => {
-            btn.disabled = false;
-            btn.innerText = '🚀 Kirim File ke Kasir';
-            if (xhr.status === 200) {
-                const res = JSON.parse(xhr.responseText);
-                alertBox.className = 'alert alert-success';
-                alertBox.innerHTML = '✅ <b>Berhasil Terkirim!</b><br>' + res.count + ' file masuk ke folder: <b>' + res.folder + '</b>.<br>Silakan infokan ke kasir.';
-                alertBox.style.display = 'block';
-                document.getElementById('fileInput').value = '';
-                document.getElementById('fileInfo').innerText = 'Bisa pilih banyak file sekaligus';
-            } else {
-                alertBox.className = 'alert alert-error';
-                alertBox.innerText = '❌ Terjadi kesalahan saat mengirim file.';
-                alertBox.style.display = 'block';
-            }
-        };
-        xhr.onerror = () => {
-            btn.disabled = false;
-            btn.innerText = '🚀 Kirim File ke Kasir';
-            alertBox.className = 'alert alert-error';
-            alertBox.innerText = '❌ Gagal terhubung ke komputer kasir.';
-            alertBox.style.display = 'block';
-        };
-        xhr.send(formData);
-    };
-</script>
-</body>
-</html>"""
-
-def get_unique_path(folder, filename):
-    name, ext = os.path.splitext(filename)
-    counter = 1
-    target = os.path.join(folder, filename)
-    while os.path.exists(target):
-        target = os.path.join(folder, f"{name} ({counter}){ext}")
-        counter += 1
-    return target
-
 @app.route("/")
 def index():
-    return render_template_string(HTML_PAGE)
+    db = load_db()
+    return render_template("index.html", db=db)
+
+@app.route("/admin")
+def admin():
+    db = load_db()
+    return render_template("admin.html", db=db)
+
+@app.route("/api/config", methods=["GET"])
+def get_config():
+    return jsonify(load_db())
+
+@app.route("/api/config", methods=["POST"])
+def update_config():
+    new_data = request.json
+    if new_data:
+        save_db(new_data)
+        return jsonify({"status": "success", "message": "Konfigurasi berhasil disimpan!"})
+    return jsonify({"status": "error", "message": "Data kosong"}), 400
+
+@app.route("/api/calculate-price", methods=["POST"])
+def calculate_price():
+    data = request.json
+    db = load_db()
+    
+    mode = data.get("mode", "document") # document or photo_custom
+    quantity = int(data.get("quantity", 1))
+    paper_id = int(data.get("paper_id", 1))
+    color_mode = data.get("color_mode", "COLOR") # COLOR or BW
+    duplex = bool(data.get("duplex", False))
+    accessory_id = data.get("accessory_id")
+    
+    # Find paper
+    paper = next((p for p in db.get("papers", []) if p["id"] == paper_id), None)
+    if not paper:
+        paper = db["papers"][0]
+        
+    base_price = paper["base_selling_price_color"] if color_mode == "COLOR" else paper["base_selling_price_bw"]
+    
+    # Duplex multiplier
+    if duplex:
+        multiplier = 1.0 + (paper.get("duplex_extra_percent", 80) / 100.0)
+        unit_print_price = base_price * multiplier
+    else:
+        unit_print_price = base_price
+        
+    accessory_price_total = 0
+    accessory_name = ""
+    if accessory_id:
+        acc = next((a for a in db.get("accessories", []) if a["id"] == int(accessory_id)), None)
+        if acc:
+            accessory_price_total = acc.get("selling_price", 0) * quantity
+            accessory_name = acc["name"]
+
+    # Calculate total based on mode
+    if mode == "photo_custom":
+        preset_id = data.get("preset_id")
+        preset = next((pr for pr in db.get("presets", []) if pr["id"] == preset_id), None)
+        
+        if preset and "price_per_pcs" in preset:
+            print_cost_total = preset["price_per_pcs"] * quantity
+        elif preset and "suggested_price" in preset:
+            print_cost_total = preset["suggested_price"] * quantity
+        else:
+            # Custom mm calculation
+            photo_w = float(data.get("photo_w_mm", 28))
+            photo_h = float(data.get("photo_h_mm", 38))
+            # how many fit on paper
+            cols = max(1, int(paper["width_mm"] / (photo_w + 3)))
+            rows = max(1, int(paper["height_mm"] / (photo_h + 3)))
+            fits = cols * rows
+            sheets_needed = max(1, int(quantity + fits - 1) // fits)
+            print_cost_total = sheets_needed * unit_print_price
+    else:
+        # Document mode
+        page_count = int(data.get("page_count", 1))
+        sheets_needed = page_count * quantity
+        if duplex:
+            sheets_needed = int((page_count + 1) // 2) * quantity
+        print_cost_total = sheets_needed * unit_print_price
+
+    total_price = print_cost_total + accessory_price_total
+    
+    # Rounding
+    round_to = db.get("settings", {}).get("round_price_to", 500)
+    if round_to > 0:
+        total_price = int((total_price + round_to - 1) // round_to * round_to)
+
+    return jsonify({
+        "total_price": total_price,
+        "print_cost_total": print_cost_total,
+        "accessory_price_total": accessory_price_total,
+        "accessory_name": accessory_name,
+        "sheets_needed": locals().get("sheets_needed", 1)
+    })
 
 @app.route("/upload", methods=["POST"])
 def upload():
+    db = load_db()
     nama = request.form.get("nama", "").strip()
-    clean_nama = re.sub(r'[/\\:*?"<>|]', "", nama).strip() or "Tanpa_Nama"
-    folder_tujuan = os.path.join(BASE_DIR, clean_nama)
-    os.makedirs(folder_tujuan, exist_ok=True)
+    if not nama:
+        return jsonify({"error": "Nama tidak boleh kosong"}), 400
 
-    files = request.files.getlist("files")
-    saved = 0
-    for f in files:
-        if f.filename:
-            path = get_unique_path(folder_tujuan, os.path.basename(f.filename))
-            f.save(path)
-            saved += 1
+    clean_nama = re.sub(r'[/\\:*?"<>|]', "", nama).strip() or "Pelanggan"
+    timestamp = datetime.now().strftime("%Y-%m-%d_%H%M%S")
+    folder_name = f"{timestamp}_{clean_nama}"
+    order_dir = os.path.join(BASE_DIR, folder_name)
+    os.makedirs(order_dir, exist_ok=True)
 
-    return jsonify({"status": "ok", "folder": clean_nama, "count": saved})
+    mode = request.form.get("mode", "document")
+    color_mode = request.form.get("color_mode", "COLOR")
+    duplex = request.form.get("duplex", "false") == "true"
+    quantity = int(request.form.get("quantity", 1))
+    paper_id = int(request.form.get("paper_id", 1))
+    accessory_id = request.form.get("accessory_id", None)
+    catatan = request.form.get("catatan", "")
+    total_price = request.form.get("total_price", "0")
+
+    paper = next((p for p in db.get("papers", []) if p["id"] == paper_id), db["papers"][0])
+    accessory = next((a for a in db.get("accessories", []) if str(a["id"]) == str(accessory_id)), None)
+
+    saved_files = []
+    generated_pdf = None
+
+    uploaded_files = request.files.getlist("files")
+
+    if mode == "photo_custom" and uploaded_files and uploaded_files[0].filename:
+        file = uploaded_files[0]
+        ext = os.path.splitext(file.filename)[1]
+        orig_img_path = os.path.join(order_dir, f"original_photo{ext}")
+        file.save(orig_img_path)
+        saved_files.append(os.path.basename(orig_img_path))
+
+        photo_w_mm = float(request.form.get("photo_w_mm", 28))
+        photo_h_mm = float(request.form.get("photo_h_mm", 38))
+        crop_json = request.form.get("crop_data", None)
+        crop_data = json.loads(crop_json) if crop_json else None
+
+        pdf_name = f"TEMPLATE_PRINT_{int(photo_w_mm)}x{int(photo_h_mm)}_{quantity}pcs.pdf"
+        out_pdf_path = os.path.join(order_dir, pdf_name)
+        
+        acc_name = accessory["name"] if accessory else None
+        generate_photo_layout_pdf(
+            output_pdf_path=out_pdf_path,
+            photo_image_path=orig_img_path,
+            photo_w_mm=photo_w_mm,
+            photo_h_mm=photo_h_mm,
+            quantity=quantity,
+            paper_size_key=paper.get("size", "A4"),
+            cut_marks=True,
+            accessory_name=acc_name,
+            crop_data=crop_data
+        )
+        generated_pdf = pdf_name
+    else:
+        # Document mode
+        for f in uploaded_files:
+            if f.filename:
+                safe_name = os.path.basename(f.filename)
+                target_path = os.path.join(order_dir, safe_name)
+                f.save(target_path)
+                saved_files.append(safe_name)
+
+    # Generate STRUK_PESANAN.txt
+    struk_content = f"""==================================================
+              AYDIN PRINT — NOTA ORDER
+==================================================
+Waktu         : {datetime.now().strftime('%d/%m/%Y %H:%M:%S')}
+Nama Pemesan  : {nama}
+Mode Cetak    : {'Foto / Template Kustom' if mode == 'photo_custom' else 'Dokumen / Fotocopy'}
+Jumlah / Qty  : {quantity} pcs/copy
+Kertas        : {paper['name']}
+Mode Warna    : {color_mode}
+Duplex (B-B)  : {'Ya (Bolak-Balik)' if duplex else 'Tidak (1 Sisi)'}
+Aksesoris     : {accessory['name'] if accessory else '-'}
+Catatan       : {catatan if catatan else '-'}
+--------------------------------------------------
+ESTIMASI TOTAL: Rp {int(float(total_price)):,}
+==================================================
+File Pelanggan:
+"""
+    for sf in saved_files:
+        struk_content += f"- {sf}\n"
+    if generated_pdf:
+        struk_content += f"- [SIAP CETAK]: {generated_pdf}\n"
+
+    with open(os.path.join(order_dir, "STRUK_PESANAN.txt"), "w", encoding="utf-8") as f:
+        f.write(struk_content)
+
+    order_meta = {
+        "nama": nama,
+        "timestamp": timestamp,
+        "folder": folder_name,
+        "mode": mode,
+        "quantity": quantity,
+        "color_mode": color_mode,
+        "duplex": duplex,
+        "paper_name": paper['name'],
+        "accessory_name": accessory['name'] if accessory else None,
+        "catatan": catatan,
+        "total_price": int(float(total_price)),
+        "files": saved_files,
+        "generated_pdf": generated_pdf
+    }
+
+    with open(os.path.join(order_dir, "ORDER_DATA.json"), "w", encoding="utf-8") as f:
+        json.dump(order_meta, f, indent=2)
+
+    return jsonify({
+        "status": "success",
+        "folder": folder_name,
+        "total_price": int(float(total_price)),
+        "files_count": len(saved_files),
+        "generated_pdf": generated_pdf
+    })
+
+@app.route("/api/orders", methods=["GET"])
+def get_orders():
+    orders = []
+    if os.path.exists(BASE_DIR):
+        for fld in sorted(os.listdir(BASE_DIR), reverse=True):
+            fld_path = os.path.join(BASE_DIR, fld)
+            json_path = os.path.join(fld_path, "ORDER_DATA.json")
+            if os.path.isdir(fld_path) and os.path.exists(json_path):
+                try:
+                    with open(json_path, "r", encoding="utf-8") as f:
+                        data = json.load(f)
+                        orders.append(data)
+                except Exception:
+                    pass
+    return jsonify(orders[:50])
+
+@app.route("/download/<path:folder>/<path:filename>")
+def download_file(folder, filename):
+    return send_from_directory(os.path.join(BASE_DIR, folder), filename)
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000, threaded=True)
