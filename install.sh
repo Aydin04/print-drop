@@ -28,6 +28,7 @@ echo "▶ [2/5] Mengunduh komponen aplikasi Aydin Print..."
 curl -sSL https://raw.githubusercontent.com/Aydin04/print-drop/main/app.py -o "$APP_DIR/server.py"
 curl -sSL https://raw.githubusercontent.com/Aydin04/print-drop/main/database.py -o "$APP_DIR/database.py"
 curl -sSL https://raw.githubusercontent.com/Aydin04/print-drop/main/pdf_generator.py -o "$APP_DIR/pdf_generator.py"
+curl -sSL https://raw.githubusercontent.com/Aydin04/print-drop/main/generate_poster.py -o "$APP_DIR/generate_poster.py"
 curl -sSL https://raw.githubusercontent.com/Aydin04/print-drop/main/hpp_engine.py -o "$APP_DIR/hpp_engine.py"
 curl -sSL https://raw.githubusercontent.com/Aydin04/print-drop/main/templates/index.html -o "$TEMPLATES_DIR/index.html"
 curl -sSL https://raw.githubusercontent.com/Aydin04/print-drop/main/templates/admin.html -o "$TEMPLATES_DIR/admin.html"
@@ -73,14 +74,7 @@ fi
 
 # 5. Generate QR Code Image & Desktop Shortcut
 echo "▶ [5/5] Menghasilkan QR Code Meja Kasir & Shortcut Aplikasi Kasir..."
-python3 - << 'EOF'
-import qrcode
-import os
-
-url = "http://10.42.0.1:5000"
-img = qrcode.make(url)
-img.save(os.path.expanduser("~/PrintDrop/QR_AYDIN_PRINT.png"))
-EOF
+python3 "$APP_DIR/generate_poster.py"
 
 # Buat Desktop Shortcut di Menu Linux Aurora
 cat << 'EOF' > "$HOME/.local/share/applications/aydin-print-kasir.desktop"
