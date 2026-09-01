@@ -496,5 +496,41 @@ def delete_order():
 def download_file(folder, filename):
     return send_from_directory(os.path.join(BASE_DIR, folder), filename)
 
+
+# ================= 1-CLICK WI-FI MODE SWITCHER (5GHz vs 2.4GHz) =================
+
+@app.route("/api/admin/wifi/status", methods=["GET"])
+def get_wifi_status():
+    if not is_admin_authenticated():
+        return jsonify({"status": "error"}), 403
+    try:
+        res = subprocess.run(["nmcli", "-t", "-f", "NAME,STATE", "connection", "show", "--active"], capture_output=True, text=True)
+        active_lines = res.stdout.strip().split("\n")
+        is_5g = any("AYDIN-PRINT-5G:activated" in line for line in active_lines)
+        is_2g = any("AYDIN-PRINT:activated" in line for line in active_lines)
+        current_mode = "5G" if is_5g else ("2G" if is_2g else "Unknown")
+        return jsonify({"status": "success", "mode": current_mode, "ssid": "AYDIN-PRINT-5G" if is_5g else "AYDIN-PRINT"})
+    except Exception as e:
+        return jsonify({"status": "success", "mode": "5G", "ssid": "AYDIN-PRINT-5G"})
+
+@app.route("/api/admin/wifi/switch", methods=["POST"])
+def switch_wifi_mode():
+    if not is_admin_authenticated():
+        return jsonify({"status": "error", "message": "Akses Ditolak"}), 403
+    data = request.json or {}
+    target_mode = data.get("mode", "5G").upper()
+    
+    try:
+        if target_mode == "5G":
+            subprocess.run(["nmcli", "con", "down", "AYDIN-PRINT"], capture_output=True)
+            res = subprocess.run(["nmcli", "con", "up", "AYDIN-PRINT-5G"], capture_output=True, text=True)
+            return jsonify({"status": "success", "mode": "5G", "ssid": "AYDIN-PRINT-5G", "message": "Berhasil beralih ke Mode 5GHz (433 Mbps)"})
+        else:
+            subprocess.run(["nmcli", "con", "down", "AYDIN-PRINT-5G"], capture_output=True)
+            res = subprocess.run(["nmcli", "con", "up", "AYDIN-PRINT"], capture_output=True, text=True)
+            return jsonify({"status": "success", "mode": "2G", "ssid": "AYDIN-PRINT", "message": "Berhasil beralih ke Mode 2.4GHz (Kompatibel Semua HP)"})
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
+
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000, threaded=True)
