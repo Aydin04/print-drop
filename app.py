@@ -2,6 +2,7 @@ import os
 import re
 import json
 import secrets
+import subprocess
 from datetime import datetime
 from flask import Flask, request, render_template, jsonify, send_from_directory, session
 from database import load_db, save_db
@@ -14,11 +15,9 @@ BASE_DIR = os.path.expanduser("~/Hasil_Print")
 os.makedirs(BASE_DIR, exist_ok=True)
 
 def is_admin_authenticated():
-    # 1. Automatic pass for local PC kasir (localhost)
     client_ip = request.remote_addr
     if client_ip in ["127.0.0.1", "::1", "localhost"]:
         return True
-    # 2. Check session token/pin
     return session.get("is_admin", False) is True
 
 @app.route("/")
@@ -38,7 +37,7 @@ def admin_login():
     pin = str(data.get("pin", "")).strip()
     db = load_db()
     correct_pin = str(db.get("settings", {}).get("admin_pin", "1234")).strip()
-    
+
     if pin == correct_pin:
         session["is_admin"] = True
         return jsonify({"status": "success", "message": "Autentikasi Berhasil"})
@@ -62,6 +61,103 @@ def update_config():
         save_db(new_data)
         return jsonify({"status": "success", "message": "Konfigurasi berhasil disimpan!"})
     return jsonify({"status": "error", "message": "Data kosong"}), 400
+
+# ================= MASTER DATA CRUD ENDPOINTS =================
+
+@app.route("/api/admin/printer/save", methods=["POST"])
+def save_printer():
+    if not is_admin_authenticated():
+        return jsonify({"status": "error"}), 403
+    p_data = request.json or {}
+    db = load_db()
+    printers = db.get("printers", [])
+
+    p_id = p_data.get("id")
+    if p_id:
+        for i, p in enumerate(printers):
+            if p["id"] == p_id:
+                printers[i] = p_data
+                break
+    else:
+        new_id = max([p["id"] for p in printers] + [0]) + 1
+        p_data["id"] = new_id
+        printers.append(p_data)
+
+    db["printers"] = printers
+    save_db(db)
+    return jsonify({"status": "success", "data": p_data})
+
+@app.route("/api/admin/paper/save", methods=["POST"])
+def save_paper():
+    if not is_admin_authenticated():
+        return jsonify({"status": "error"}), 403
+    p_data = request.json or {}
+    db = load_db()
+    papers = db.get("papers", [])
+
+    p_id = p_data.get("id")
+    if p_id:
+        for i, p in enumerate(papers):
+            if p["id"] == p_id:
+                papers[i] = p_data
+                break
+    else:
+        new_id = max([p["id"] for p in papers] + [0]) + 1
+        p_data["id"] = new_id
+        papers.append(p_data)
+
+    db["papers"] = papers
+    save_db(db)
+    return jsonify({"status": "success", "data": p_data})
+
+@app.route("/api/admin/accessory/save", methods=["POST"])
+def save_accessory():
+    if not is_admin_authenticated():
+        return jsonify({"status": "error"}), 403
+    a_data = request.json or {}
+    db = load_db()
+    accessories = db.get("accessories", [])
+
+    a_id = a_data.get("id")
+    if a_id:
+        for i, a in enumerate(accessories):
+            if a["id"] == a_id:
+                accessories[i] = a_data
+                break
+    else:
+        new_id = max([a["id"] for a in accessories] + [0]) + 1
+        a_data["id"] = new_id
+        accessories.append(a_data)
+
+    db["accessories"] = accessories
+    save_db(db)
+    return jsonify({"status": "success", "data": a_data})
+
+@app.route("/api/admin/preset/save", methods=["POST"])
+def save_preset():
+    if not is_admin_authenticated():
+        return jsonify({"status": "error"}), 403
+    pr_data = request.json or {}
+    db = load_db()
+    presets = db.get("presets", [])
+
+    pr_id = pr_data.get("id")
+    if pr_id:
+        for i, pr in enumerate(presets):
+            if pr["id"] == pr_id:
+                presets[i] = pr_data
+                break
+        else:
+            presets.append(pr_data)
+    else:
+        pr_data["id"] = "preset_" + secrets.token_hex(4)
+        presets.append(pr_data)
+
+    db["presets"] = presets
+    save_db(db)
+    return jsonify({"status": "success", "data": pr_data})
+
+# ================= PRICE CALCULATION =================
 
 @app.route("/api/calculate-price", methods=["POST"])
 def calculate_price_api():
@@ -101,6 +197,7 @@ def calculate_price_api():
     if mode == "photo_custom":
         preset_id = data.get("preset_id")
         preset = next((pr for pr in db.get("presets", []) if pr["id"] == preset_id), None)
+        is_keychain = (preset_id == "goci_akrilik") or ("Gantungan Kunci" in (preset.get("name", "") if preset else ""))
 
         photo_w_mm = float(data.get("photo_w_mm", 28))
         photo_h_mm = float(data.get("photo_h_mm", 38))
@@ -111,14 +208,15 @@ def calculate_price_api():
             cut_w_cm=photo_w_mm / 10.0,
             cut_h_cm=photo_h_mm / 10.0
         )
-        total_sheets_needed = max(1, (quantity + cut_fits - 1) // cut_fits)
+        effective_slots = quantity * 2 if is_keychain else quantity
+        total_sheets_needed = max(1, (effective_slots + cut_fits - 1) // cut_fits)
 
         if preset and "price_per_pcs" in preset:
             selling_price_total = (preset["price_per_pcs"] * quantity) + accessory_price_total
             hpp_res = calculate_hpp(
                 pack_price=paper["pack_price"],
                 sheets_per_pack=paper["sheets_per_pack"],
-                total_quantity_ordered=quantity,
+                total_quantity_ordered=effective_slots,
                 cut_fits_per_page=cut_fits,
                 avg_ink_price_per_ml=avg_ink_price_per_ml,
                 printer_watt=printer.get("watt", 16.0),
@@ -197,6 +295,8 @@ def calculate_price_api():
         "accessory_name": accessory_name
     })
 
+# ================= UPLOAD ORDER =================
+
 @app.route("/upload", methods=["POST"])
 def upload():
     db = load_db()
@@ -239,6 +339,7 @@ def upload():
         photo_h_mm = float(request.form.get("photo_h_mm", 38))
         crop_json = request.form.get("crop_data", None)
         crop_data = json.loads(crop_json) if crop_json else None
+        is_keychain = (preset_name == "goci_akrilik") or ("Gantungan Kunci" in preset_name)
 
         pdf_filename = f"CETAK_{int(photo_w_mm)}x{int(photo_h_mm)}mm_{quantity}pcs_{clean_nama}.pdf"
         out_pdf_path = os.path.join(order_dir, pdf_filename)
@@ -253,7 +354,8 @@ def upload():
             cut_marks=True,
             customer_name=nama,
             accessory_name=accessory["name"] if accessory else None,
-            crop_data=crop_data
+            crop_data=crop_data,
+            is_keychain_mode=is_keychain
         )
         generated_pdf = pdf_filename
     else:
