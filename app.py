@@ -4,7 +4,7 @@ import json
 import secrets
 import subprocess
 from datetime import datetime
-from flask import Flask, request, render_template, jsonify, send_from_directory, session
+from flask import Flask, request, render_template, jsonify, send_from_directory, session, redirect
 from database import load_db, save_db
 from pdf_generator import generate_photo_layout_pdf
 from hpp_engine import calculate_hpp, calculate_selling_price, round_to_nearest, calculate_cut_fits_per_page
@@ -20,22 +20,13 @@ def is_admin_authenticated():
         return True
     return session.get("is_admin", False) is True
 
-
 # ================= CAPTIVE PORTAL PROBE HANDLERS =================
-# Ketika HP pelanggan konek Wi-Fi, HP otomatis membuka web ini langsung di layar (Pop-up Login Wi-Fi)
-
-@app.route("/generate_204") # Android probe
-@app.route("/gen_204")      # Android probe
-@app.route("/ncsi.txt")     # Windows probe
-def android_captive_portal():
-    # Redirect directly to web upload
-    from flask import redirect
-    return redirect("http://10.42.0.1:5000/")
-
-@app.route("/hotspot-detect.html") # iOS / Apple CNA probe
+@app.route("/generate_204")
+@app.route("/gen_204")
+@app.route("/ncsi.txt")
+@app.route("/hotspot-detect.html")
 @app.route("/canonical.html")
-def apple_captive_portal():
-    from flask import redirect
+def captive_portal_probe():
     return redirect("http://10.42.0.1:5000/")
 
 @app.route("/")
@@ -80,7 +71,7 @@ def update_config():
         return jsonify({"status": "success", "message": "Konfigurasi berhasil disimpan!"})
     return jsonify({"status": "error", "message": "Data kosong"}), 400
 
-# ================= MASTER DATA CRUD ENDPOINTS =================
+# ================= MASTER DATA CRUD =================
 
 @app.route("/api/admin/printer/save", methods=["POST"])
 def save_printer():
@@ -324,7 +315,7 @@ def upload():
 
     clean_nama = re.sub(r'[/\:*?"<>|]', "", nama).strip() or "Pelanggan"
     timestamp = datetime.now().strftime("%Y-%m-%d_%H%M%S")
-    folder_name = f"{timestamp}_{clean_nama}"
+    folder_name = timestamp + "_" + clean_nama
     order_dir = os.path.join(BASE_DIR, folder_name)
     os.makedirs(order_dir, exist_ok=True)
 
@@ -349,7 +340,7 @@ def upload():
     if mode == "photo_custom" and uploaded_files and uploaded_files[0].filename:
         file = uploaded_files[0]
         ext = os.path.splitext(file.filename)[1].lower() or ".jpg"
-        orig_img_path = os.path.join(order_dir, f"original_{clean_nama}{ext}")
+        orig_img_path = os.path.join(order_dir, "original_" + clean_nama + ext)
         file.save(orig_img_path)
         saved_files.append(os.path.basename(orig_img_path))
 
@@ -359,7 +350,7 @@ def upload():
         crop_data = json.loads(crop_json) if crop_json else None
         is_keychain = (preset_name == "goci_akrilik") or ("Gantungan Kunci" in preset_name)
 
-        pdf_filename = f"CETAK_{int(photo_w_mm)}x{int(photo_h_mm)}mm_{quantity}pcs_{clean_nama}.pdf"
+        pdf_filename = "CETAK_" + str(int(photo_w_mm)) + "x" + str(int(photo_h_mm)) + "mm_" + str(quantity) + "pcs_" + clean_nama + ".pdf"
         out_pdf_path = os.path.join(order_dir, pdf_filename)
 
         generate_photo_layout_pdf(
@@ -384,33 +375,33 @@ def upload():
                 f.save(target_path)
                 saved_files.append(safe_name)
 
-    struk_content = f"""==================================================
-              AYDIN PRINT — NOTA ORDER
-==================================================
-Waktu         : {datetime.now().strftime('%d/%m/%Y %H:%M:%S')}
-Nama Pemesan  : {nama}
-Mode Cetak    : {'Foto & Kustom Studio' if mode == 'photo_custom' else 'Dokumen / Fotocopy'}
-Preset        : {preset_name if preset_name else '-'}
-Jumlah / Qty  : {quantity} pcs/copy
-Kertas        : {paper['name']}
-Mode Warna    : {'Full Color' if color_mode == 'COLOR' else 'Hitam Putih (B/W)'}
-Duplex (B-B)  : {'Ya (Bolak-Balik)' if duplex else 'Tidak (1 Sisi)'}
-Aksesoris     : {accessory['name'] if accessory else '-'}
-Catatan       : {catatan if catatan else '-'}
---------------------------------------------------
-ESTIMASI TOTAL: Rp {total_price:,}
-==================================================
-File Pesanan:
-"""
+    # Build STRUK_PESANAN.txt safely
+    struk_lines = [
+        "==================================================",
+        "              AYDIN PRINT — NOTA ORDER            ",
+        "==================================================",
+        "Waktu         : " + datetime.now().strftime('%d/%m/%Y %H:%M:%S'),
+        "Nama Pemesan  : " + nama,
+        "Mode Cetak    : " + ("Foto & Kustom Studio" if mode == "photo_custom" else "Dokumen / Fotocopy"),
+        "Preset        : " + (preset_name if preset_name else "-"),
+        "Jumlah / Qty  : " + str(quantity) + " pcs/copy",
+        "Kertas        : " + paper['name'],
+        "Mode Warna    : " + ("Full Color" if color_mode == "COLOR" else "Hitam Putih (B/W)"),
+        "Duplex (B-B)  : " + ("Ya (Bolak-Balik)" if duplex else "Tidak (1 Sisi)"),
+        "Aksesoris     : " + (accessory['name'] if accessory else "-"),
+        "Catatan       : " + (catatan if catatan else "-"),
+        "--------------------------------------------------",
+        "ESTIMASI TOTAL: Rp " + format(total_price, ","),
+        "==================================================",
+        "File Pesanan:"
+    ]
     for sf in saved_files:
-        struk_content += f"- {sf}
-"
+        struk_lines.append("- " + sf)
     if generated_pdf:
-        struk_content += f"- [⭐ SIAP CETAK PDF]: {generated_pdf}
-"
+        struk_lines.append("- [SIAP CETAK PDF]: " + str(generated_pdf))
 
     with open(os.path.join(order_dir, "STRUK_PESANAN.txt"), "w", encoding="utf-8") as f:
-        f.write(struk_content)
+        f.write("\n".join(struk_lines) + "\n")
 
     order_meta = {
         "id": timestamp,
@@ -496,8 +487,7 @@ def delete_order():
 def download_file(folder, filename):
     return send_from_directory(os.path.join(BASE_DIR, folder), filename)
 
-
-# ================= 1-CLICK WI-FI MODE SWITCHER (5GHz vs 2.4GHz) =================
+# ================= 1-CLICK WI-FI MODE SWITCHER =================
 
 @app.route("/api/admin/wifi/status", methods=["GET"])
 def get_wifi_status():
@@ -519,7 +509,7 @@ def switch_wifi_mode():
         return jsonify({"status": "error", "message": "Akses Ditolak"}), 403
     data = request.json or {}
     target_mode = data.get("mode", "5G").upper()
-    
+
     try:
         if target_mode == "5G":
             subprocess.run(["nmcli", "con", "down", "AYDIN-PRINT"], capture_output=True)
