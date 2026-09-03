@@ -166,6 +166,47 @@ def save_preset():
     save_db(db)
     return jsonify({"status": "success", "data": pr_data})
 
+
+@app.route("/api/admin/printer/delete", methods=["POST"])
+def delete_printer():
+    if not is_admin_authenticated():
+        return jsonify({"status": "error"}), 403
+    p_id = (request.json or {}).get("id")
+    db = load_db()
+    db["printers"] = [p for p in db.get("printers", []) if p["id"] != p_id]
+    save_db(db)
+    return jsonify({"status": "success"})
+
+@app.route("/api/admin/paper/delete", methods=["POST"])
+def delete_paper():
+    if not is_admin_authenticated():
+        return jsonify({"status": "error"}), 403
+    p_id = (request.json or {}).get("id")
+    db = load_db()
+    db["papers"] = [p for p in db.get("papers", []) if p["id"] != p_id]
+    save_db(db)
+    return jsonify({"status": "success"})
+
+@app.route("/api/admin/accessory/delete", methods=["POST"])
+def delete_accessory():
+    if not is_admin_authenticated():
+        return jsonify({"status": "error"}), 403
+    a_id = (request.json or {}).get("id")
+    db = load_db()
+    db["accessories"] = [a for a in db.get("accessories", []) if a["id"] != a_id]
+    save_db(db)
+    return jsonify({"status": "success"})
+
+@app.route("/api/admin/preset/delete", methods=["POST"])
+def delete_preset():
+    if not is_admin_authenticated():
+        return jsonify({"status": "error"}), 403
+    pr_id = str((request.json or {}).get("id"))
+    db = load_db()
+    db["presets"] = [pr for pr in db.get("presets", []) if str(pr["id"]) != pr_id]
+    save_db(db)
+    return jsonify({"status": "success"})
+
 # ================= PRICE CALCULATION =================
 
 @app.route("/api/calculate-price", methods=["POST"])
