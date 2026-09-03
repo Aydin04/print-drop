@@ -437,7 +437,7 @@
                     '<td class="p-3">' + p.page_capacity.toLocaleString() + ' hal</td>' +
                     '<td class="p-3">' + p.watt + ' W</td>' +
                     '<td class="p-3">' + (p.supports_duplex ? 'Ya' : 'Tidak') + '</td>' +
-                    '<td class="p-3"><button onclick="editPrinter(' + p.id + ')" class="text-sky-400 hover:underline">Edit</button></td>' +
+                    '<td class="p-3"><button onclick="editPrinter(' + p.id + ')" class="text-sky-400 hover:underline mr-3">Edit</button><button onclick="deletePrinter(' + p.id + ')" class="text-rose-400 hover:underline">Hapus</button></td>' +
                 '</tr>';
             });
             html += '</tbody></table>';
@@ -493,7 +493,7 @@
                     '<td class="p-3">' + p.sheets_per_pack + ' lbr</td>' +
                     '<td class="p-3">Rp ' + Number(p.base_selling_price_bw || 0).toLocaleString('id-ID') + '</td>' +
                     '<td class="p-3 text-emerald-400 font-semibold">Rp ' + Number(p.base_selling_price_color || 0).toLocaleString('id-ID') + '</td>' +
-                    '<td class="p-3"><button onclick="editPaper(' + p.id + ')" class="text-sky-400 hover:underline">Edit</button></td>' +
+                    '<td class="p-3"><button onclick="editPaper(' + p.id + ')" class="text-sky-400 hover:underline mr-3">Edit</button><button onclick="deletePaper(' + p.id + ')" class="text-rose-400 hover:underline">Hapus</button></td>' +
                 '</tr>';
             });
             html += '</tbody></table>';
@@ -554,7 +554,7 @@
                     '<td class="p-3">Rp ' + Number(a.unit_price).toLocaleString('id-ID') + '</td>' +
                     '<td class="p-3 text-emerald-400 font-bold">Rp ' + Number(a.selling_price).toLocaleString('id-ID') + '</td>' +
                     '<td class="p-3 text-sky-400">+Rp ' + Number(profit).toLocaleString('id-ID') + '</td>' +
-                    '<td class="p-3"><button onclick="editAccessory(' + a.id + ')" class="text-sky-400 hover:underline">Edit</button></td>' +
+                    '<td class="p-3"><button onclick="editAccessory(' + a.id + ')" class="text-sky-400 hover:underline mr-3">Edit</button><button onclick="deleteAccessory(' + a.id + ')" class="text-rose-400 hover:underline">Hapus</button></td>' +
                 '</tr>';
             });
             html += '</tbody></table>';
@@ -603,7 +603,7 @@
                     '<td class="p-3 text-sky-400 font-semibold">' + pr.photo_width_mm + ' x ' + pr.photo_height_mm + ' mm</td>' +
                     '<td class="p-3 text-emerald-400 font-bold">Rp ' + Number(pr.price_per_pcs || pr.suggested_price || 0).toLocaleString('id-ID') + '</td>' +
                     '<td class="p-3 text-sky-300 font-medium">+Rp ' + Number(pr.profit_per_unit || 0).toLocaleString('id-ID') + '</td>' +
-                    '<td class="p-3"><button onclick="editPreset(\'' + pr.id + '\')" class="text-sky-400 hover:underline">Edit</button></td>' +
+                    '<td class="p-3"><button onclick="editPreset(\'' + pr.id + '\')" class="text-sky-400 hover:underline mr-3">Edit</button><button onclick="deletePreset(\'' + pr.id + '\')" class="text-rose-400 hover:underline">Hapus</button></td>' +
                 '</tr>';
             });
             html += '</tbody></table>';
@@ -732,6 +732,31 @@
             lucide.createIcons();
         }
     
+
+        async function deletePrinter(id) {
+            if (!confirm("Yakin ingin menghapus printer ini dari master data?")) return;
+            await fetch('/api/admin/printer/delete', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: id }) });
+            loadConfig();
+        }
+
+        async function deletePaper(id) {
+            if (!confirm("Yakin ingin menghapus jenis kertas ini dari master data?")) return;
+            await fetch('/api/admin/paper/delete', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: id }) });
+            loadConfig();
+        }
+
+        async function deleteAccessory(id) {
+            if (!confirm("Yakin ingin menghapus aksesoris ini dari master data?")) return;
+            await fetch('/api/admin/accessory/delete', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: id }) });
+            loadConfig();
+        }
+
+        async function deletePreset(id) {
+            if (!confirm("Yakin ingin menghapus preset produk ini?")) return;
+            await fetch('/api/admin/preset/delete', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: id }) });
+            loadConfig();
+        }
+
 function closeModal() {
             document.getElementById('adminModal').classList.add('hidden');
         }
