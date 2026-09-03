@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # ==============================================================
 # AYDIN PRINT — Self-Service Print & Studio Auto Installer
-# Dengan Buka Port Firewall 5000 & Konfirmasi IP Hotspot
+# FIX PERMANEN: Firewall Zone nm-shared & FedoraWorkstation (Port 5000)
 # ==============================================================
 
 set -e
@@ -16,7 +16,7 @@ NC='\033[0m'
 
 echo ""
 echo -e "${CYAN}╔════════════════════════════════════════════════════════════╗${NC}"
-echo -e "${CYAN}║     🖨️  MEMULAI INSTALASI AYDIN PRINT STUDIO (VERBOSE)     ║${NC}"
+echo -e "${CYAN}║         🖨️  MEMULAI KONFIGURASI AYDIN PRINT STUDIO         ║${NC}"
 echo -e "${CYAN}╚════════════════════════════════════════════════════════════╝${NC}"
 echo ""
 
@@ -27,178 +27,51 @@ VENV_DIR="$APP_DIR/venv"
 
 mkdir -p "$APP_DIR" "$RESULT_DIR" "$TEMPLATES_DIR" "$HOME/.local/share/applications" "$HOME/Desktop" 2>/dev/null || true
 
-# 1. Setup Virtual Environment & Fast Check Dependency
-echo -e "${BOLD}${BLUE}▶ [1/5] Memeriksa & Menyiapkan Python Environment...${NC}"
-
-if [ ! -f "$VENV_DIR/bin/python3" ]; then
-    echo -e "  ${YELLOW}[i]${NC} Membuat Virtual Environment di $VENV_DIR..."
-    python3 -m venv "$VENV_DIR" --system-site-packages 2>/dev/null || python3 -m venv "$VENV_DIR"
-fi
+# 1. Setup Virtual Environment
+echo -e "${BOLD}${BLUE}▶ [1/4] Menyiapkan Python Server...${NC}"
 
 PY_BIN="$VENV_DIR/bin/python3"
 PIP_BIN="$VENV_DIR/bin/pip"
 
-MISSING_PKGS=""
-for pkg in flask PIL reportlab qrcode; do
-    echo -n "  -> Memeriksa '$pkg'... "
-    if "$PY_BIN" -c "import $pkg" 2>/dev/null; then
-        echo -e "${GREEN}[TERPASANG]${NC}"
-    else
-        echo -e "${RED}[BELUM ADA]${NC}"
-        case "$pkg" in
-            PIL) MISSING_PKGS="$MISSING_PKGS pillow" ;;
-            *) MISSING_PKGS="$MISSING_PKGS $pkg" ;;
-        esac
-    fi
-done
+# 2. Download / Update Template & Server
+echo -e "${BOLD}${BLUE}▶ [2/4] Sinkronisasi Skrip Web...${NC}"
+curl -sSL https://raw.githubusercontent.com/Aydin04/print-drop/main/app.py -o "$APP_DIR/server.py"
+curl -sSL https://raw.githubusercontent.com/Aydin04/print-drop/main/database.py -o "$APP_DIR/database.py"
+curl -sSL https://raw.githubusercontent.com/Aydin04/print-drop/main/pdf_generator.py -o "$APP_DIR/pdf_generator.py"
+curl -sSL https://raw.githubusercontent.com/Aydin04/print-drop/main/hpp_engine.py -o "$APP_DIR/hpp_engine.py"
+curl -sSL https://raw.githubusercontent.com/Aydin04/print-drop/main/generate_poster.py -o "$APP_DIR/generate_poster.py"
+curl -sSL https://raw.githubusercontent.com/Aydin04/print-drop/main/templates/index.html -o "$TEMPLATES_DIR/index.html"
+curl -sSL https://raw.githubusercontent.com/Aydin04/print-drop/main/templates/admin.html -o "$TEMPLATES_DIR/admin.html"
 
-if [ -n "$MISSING_PKGS" ]; then
-    echo -e "  ${YELLOW}[i]${NC} Mengunduh modul yang kurang:${BOLD}$MISSING_PKGS${NC}..."
-    "$PIP_BIN" install --upgrade pip 2>/dev/null || true
-    "$PIP_BIN" install $MISSING_PKGS
-    echo -e "  ${GREEN}[✓]${NC} Semua dependensi berhasil dipasang."
-fi
-
-# 2. Download Komponen Aplikasi
-echo ""
-echo -e "${BOLD}${BLUE}▶ [2/5] Mengunduh Skrip & Template...${NC}"
-
-FILES_TO_DOWNLOAD=(
-    "app.py:$APP_DIR/server.py"
-    "database.py:$APP_DIR/database.py"
-    "pdf_generator.py:$APP_DIR/pdf_generator.py"
-    "hpp_engine.py:$APP_DIR/hpp_engine.py"
-    "generate_poster.py:$APP_DIR/generate_poster.py"
-    "templates/index.html:$TEMPLATES_DIR/index.html"
-    "templates/admin.html:$TEMPLATES_DIR/admin.html"
-)
-
-for item in "${FILES_TO_DOWNLOAD[@]}"; do
-    SRC="${item%%:*}"
-    DST="${item##*:}"
-    echo -n "  -> Mengunduh $SRC... "
-    HTTP_CODE=$(curl -sSL -w "%{http_code}" "https://raw.githubusercontent.com/Aydin04/print-drop/main/$SRC" -o "$DST")
-    if [ "$HTTP_CODE" = "200" ]; then
-        echo -e "${GREEN}[OK $HTTP_CODE]${NC}"
-    else
-        echo -e "${RED}[FAILED $HTTP_CODE]${NC}"
-    fi
-done
-
-# 3. Setup & Verify Systemd Autostart Service
-echo ""
-echo -e "${BOLD}${BLUE}▶ [3/5] Mengatur & Memverifikasi Systemd Service...${NC}"
-mkdir -p "$HOME/.config/systemd/user"
-cat << EOF > "$HOME/.config/systemd/user/printdrop.service"
-[Unit]
-Description=Aydin Print Kasir & Server Studio
-After=network.target
-
-[Service]
-WorkingDirectory=$APP_DIR
-ExecStart=$PY_BIN $APP_DIR/server.py
-Restart=always
-RestartSec=2
-Environment=PYTHONUNBUFFERED=1
-
-[Install]
-WantedBy=default.target
-EOF
-
-systemctl --user daemon-reload
-systemctl --user enable printdrop.service
+# Restart printdrop.service
 systemctl --user restart printdrop.service
 
-sleep 2
-
-SERVICE_STATUS=$(systemctl --user is-active printdrop.service 2>&1 || true)
-if [ "$SERVICE_STATUS" = "active" ]; then
-    echo -e "  ${GREEN}[✓] printdrop.service BERJALAN AKTIF${NC}"
-else
-    echo -e "  ${RED}[!] printdrop.service GAGAL AKTIF${NC}"
-    journalctl --user-unit printdrop.service -n 15 --no-pager || true
-fi
-
-# 4. Deteksi Antarmuka Wi-Fi & Buat Hotspot
+# 3. BUKA FIREWALL DI SEMUA ZONE (nm-shared & FedoraWorkstation)
 echo ""
-echo -e "${BOLD}${BLUE}▶ [4/5] Mengonfigurasi Hotspot Wi-Fi & Firewall...${NC}"
+echo -e "${BOLD}${BLUE}▶ [3/4] Mengizinkan Akses Port 5000 pada Firewall (nm-shared)...${NC}"
 
-rfkill unblock wifi 2>/dev/null || true
-
-ALL_WIFI=($(nmcli -t -f DEVICE,TYPE dev | grep ':wifi$' | cut -d: -f1))
-echo "  -> Interface Wi-Fi: ${ALL_WIFI[*]}"
-
-AP_DEVICE=""
-for dev in "${ALL_WIFI[@]}"; do
-    PHY=$(iw dev "$dev" info 2>/dev/null | grep wiphy | awk '{print "phy"$2}')
-    if [ -n "$PHY" ] && iw phy "$PHY" info 2>/dev/null | grep -E '* AP$' &>/dev/null; then
-        AP_DEVICE="$dev"
-        break
-    elif [[ "$dev" =~ ^wlp[0-9]+s[0-9]+$ ]] || [[ "$dev" =~ ^wlan[0-9]+$ ]]; then
-        AP_DEVICE="$dev"
-        break
-    fi
-done
-
-if [ -z "$AP_DEVICE" ] && [ ${#ALL_WIFI[@]} -gt 0 ]; then
-    AP_DEVICE="${ALL_WIFI[0]}"
-fi
-
-if [ -n "$AP_DEVICE" ]; then
-    echo -e "  -> ${BOLD}${GREEN}Target Hotspot Card: $AP_DEVICE${NC}"
-    
-    nmcli con delete "AYDIN-PRINT" 2>/dev/null || true
-    nmcli con delete "AYDIN-PRINT-5G" 2>/dev/null || true
-    
-    echo "  -> Menyalakan Hotspot 'AYDIN-PRINT' pada $AP_DEVICE..."
-    nmcli con add type wifi ifname "$AP_DEVICE" con-name "AYDIN-PRINT" autoconnect yes ssid "AYDIN-PRINT"
-    nmcli con modify "AYDIN-PRINT" 802-11-wireless.mode ap
-    nmcli con modify "AYDIN-PRINT" 802-11-wireless-security.key-mgmt wpa-psk
-    nmcli con modify "AYDIN-PRINT" 802-11-wireless-security.psk "aydinprint"
-    nmcli con modify "AYDIN-PRINT" ipv4.method shared
-    
-    nmcli con up "AYDIN-PRINT" || nmcli dev wifi hotspot ifname "$AP_DEVICE" ssid "AYDIN-PRINT" password "aydinprint" con-name "AYDIN-PRINT" || true
-    echo -e "  ${GREEN}[✓] Hotspot 'AYDIN-PRINT' Aktif!${NC}"
-fi
-
-# 5. Buka Port 5000 di Firewall Linux Aurora (Fedora/firewalld)
-echo ""
-echo -e "${BOLD}${BLUE}▶ [5/5] Membuka Akses Firewall Port 5000 untuk HP Pelanggan...${NC}"
 if command -v firewall-cmd &>/dev/null; then
-    sudo firewall-cmd --add-port=5000/tcp --permanent 2>/dev/null || firewall-cmd --add-port=5000/tcp 2>/dev/null || true
-    sudo firewall-cmd --reload 2>/dev/null || firewall-cmd --reload 2>/dev/null || true
-    echo -e "  ${GREEN}[✓] Port 5000 berhasil dibuka pada firewalld.${NC}"
+    echo "  -> Menambahkan izin port 5000 ke zone nm-shared (Hotspot)..."
+    sudo firewall-cmd --zone=nm-shared --add-port=5000/tcp --permanent 2>/dev/null || true
+    sudo firewall-cmd --zone=nm-shared --add-port=5000/tcp 2>/dev/null || true
+    
+    sudo firewall-cmd --zone=FedoraWorkstation --add-port=5000/tcp --permanent 2>/dev/null || true
+    sudo firewall-cmd --zone=FedoraWorkstation --add-port=5000/tcp 2>/dev/null || true
+    
+    sudo firewall-cmd --reload 2>/dev/null || true
+    echo -e "  ${GREEN}[✓] Firewall zone 'nm-shared' & 'FedoraWorkstation' port 5000 SUDAH DIBUKA!${NC}"
 fi
 
-# Cari IP Hotspot yang didapat PC
-HOTSPOT_IP=$(ip -4 addr show "$AP_DEVICE" 2>/dev/null | grep -oP '(?<=inet\s)\d+(\.\d+){3}' | head -n 1)
-if [ -z "$HOTSPOT_IP" ]; then
-    HOTSPOT_IP="10.42.0.1"
-fi
-
+# 4. Generate Poster Meja
+echo ""
+echo -e "${BOLD}${BLUE}▶ [4/4] Memperbarui Poster Meja...${NC}"
 "$PY_BIN" "$APP_DIR/generate_poster.py"
-
-cat << 'EOF' > "$HOME/.local/share/applications/aydin-print-kasir.desktop"
-[Desktop Entry]
-Name=Aydin Print Kasir
-Comment=Buka Dashboard Kasir & Antrian Cetak Aydin Print
-Exec=xdg-open http://127.0.0.1:5000/admin
-Icon=printer
-Terminal=false
-Type=Application
-Categories=Office;Utility;
-EOF
-
-chmod +x "$HOME/.local/share/applications/aydin-print-kasir.desktop" 2>/dev/null || true
-cp "$HOME/.local/share/applications/aydin-print-kasir.desktop" "$HOME/Desktop/" 2>/dev/null || true
 
 echo ""
 echo -e "${GREEN}╔════════════════════════════════════════════════════════════╗${NC}"
-echo -e "${GREEN}║           🎉 INSTALASI SELESAI & SIAP DIGUNAKAN!           ║${NC}"
+echo -e "${GREEN}║           🎉 AKSES WEB SELESAI DIBUKA LENGKAP!             ║${NC}"
 echo -e "${GREEN}╚════════════════════════════════════════════════════════════╝${NC}"
-echo -e "🛡️ ${BOLD}Buka Panel Kasir (di PC)${NC}  : ${CYAN}http://127.0.0.1:5000/admin${NC}"
-echo -e "🌐 ${BOLD}Web Pelanggan (dari HP)${NC}   : ${BOLD}${GREEN}http://$HOTSPOT_IP:5000${NC}"
-echo -e "📶 ${BOLD}Wi-Fi Hotspot Toko${NC}        : ${YELLOW}AYDIN-PRINT${NC} (Password: ${YELLOW}aydinprint${NC})"
-echo -e "📁 ${BOLD}Folder File Masuk${NC}         : $RESULT_DIR"
-echo -e "🖼️ ${BOLD}Gambar Poster Meja${NC}        : $APP_DIR/POSTER_MEJA_AYDIN_PRINT.png"
+echo -e "📶 ${BOLD}Wi-Fi Hotspot Toko${NC}      : ${YELLOW}AYDIN-PRINT${NC} (Password: ${YELLOW}aydinprint${NC})"
+echo -e "🌐 ${BOLD}Web Pelanggan (dari HP)${NC} : ${BOLD}${GREEN}http://10.42.0.1:5000${NC}"
+echo -e "🛡️ ${BOLD}Panel Kasir (di PC)${NC}     : ${CYAN}http://127.0.0.1:5000/admin${NC}"
 echo ""
