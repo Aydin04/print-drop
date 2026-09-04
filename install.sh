@@ -1,77 +1,80 @@
 #!/usr/bin/env bash
 # ==============================================================
-# AYDIN PRINT — Self-Service Print & Studio Auto Installer
-# FIX PERMANEN: Firewall Zone nm-shared & FedoraWorkstation (Port 5000)
+# Aydin Print Drop — Auto-Installer (Hotspot 5GHz & Web Studio)
+# Khusus Linux Aurora / Fedora Atomic / Ubuntu / Debian / Arch
 # ==============================================================
 
 set -e
 
-GREEN='\033[0;32m'
-BLUE='\033[0;34m'
-YELLOW='\033[1;33m'
-RED='\033[0;31m'
-CYAN='\033[0;36m'
-BOLD='\033[1m'
-NC='\033[0m'
-
 echo ""
-echo -e "${CYAN}╔════════════════════════════════════════════════════════════╗${NC}"
-echo -e "${CYAN}║         🖨️  MEMULAI KONFIGURASI AYDIN PRINT STUDIO         ║${NC}"
-echo -e "${CYAN}╚════════════════════════════════════════════════════════════╝${NC}"
+echo "╔════════════════════════════════════════════════════════════╗"
+echo "║          🖨️  MEMULAI INSTALASI AYDIN PRINT DROP            ║"
+echo "╚════════════════════════════════════════════════════════════╝"
 echo ""
 
 APP_DIR="$HOME/PrintDrop"
-RESULT_DIR="$HOME/Hasil_Print"
-TEMPLATES_DIR="$APP_DIR/templates"
-VENV_DIR="$APP_DIR/venv"
+OUT_DIR="$HOME/Hasil_Print"
+SYSTEMD_USER_DIR="$HOME/.config/systemd/user"
 
-mkdir -p "$APP_DIR" "$RESULT_DIR" "$TEMPLATES_DIR" "$HOME/.local/share/applications" "$HOME/Desktop" 2>/dev/null || true
+mkdir -p "$APP_DIR" "$APP_DIR/templates" "$APP_DIR/static" "$OUT_DIR" "$SYSTEMD_USER_DIR"
 
-# 1. Setup Virtual Environment
-echo -e "${BOLD}${BLUE}▶ [1/4] Menyiapkan Python Server...${NC}"
-
-PY_BIN="$VENV_DIR/bin/python3"
-PIP_BIN="$VENV_DIR/bin/pip"
-
-# 2. Download / Update Template & Server
-echo -e "${BOLD}${BLUE}▶ [2/4] Sinkronisasi Skrip Web...${NC}"
-curl -sSL https://raw.githubusercontent.com/Aydin04/print-drop/main/app.py -o "$APP_DIR/server.py"
+echo "📦 [1/5] Mengunduh berkas aplikasi dari GitHub..."
+curl -sSL https://raw.githubusercontent.com/Aydin04/print-drop/main/app.py -o "$APP_DIR/app.py"
 curl -sSL https://raw.githubusercontent.com/Aydin04/print-drop/main/database.py -o "$APP_DIR/database.py"
 curl -sSL https://raw.githubusercontent.com/Aydin04/print-drop/main/pdf_generator.py -o "$APP_DIR/pdf_generator.py"
-curl -sSL https://raw.githubusercontent.com/Aydin04/print-drop/main/hpp_engine.py -o "$APP_DIR/hpp_engine.py"
-curl -sSL https://raw.githubusercontent.com/Aydin04/print-drop/main/generate_poster.py -o "$APP_DIR/generate_poster.py"
-curl -sSL https://raw.githubusercontent.com/Aydin04/print-drop/main/templates/index.html -o "$TEMPLATES_DIR/index.html"
-curl -sSL https://raw.githubusercontent.com/Aydin04/print-drop/main/templates/admin.html -o "$TEMPLATES_DIR/admin.html"
+curl -sSL https://raw.githubusercontent.com/Aydin04/print-drop/main/requirements.txt -o "$APP_DIR/requirements.txt"
+curl -sSL https://raw.githubusercontent.com/Aydin04/print-drop/main/templates/index.html -o "$APP_DIR/templates/index.html"
+curl -sSL https://raw.githubusercontent.com/Aydin04/print-drop/main/templates/admin.html -o "$APP_DIR/templates/admin.html"
 
-# Restart printdrop.service
-systemctl --user restart printdrop.service
+echo "🐍 [2/5] Memasang library Python yang dibutuhkan..."
+pip install --user -r "$APP_DIR/requirements.txt" || pip3 install --user -r "$APP_DIR/requirements.txt" || true
 
-# 3. BUKA FIREWALL DI SEMUA ZONE (nm-shared & FedoraWorkstation)
-echo ""
-echo -e "${BOLD}${BLUE}▶ [3/4] Mengizinkan Akses Port 5000 pada Firewall (nm-shared)...${NC}"
+echo "📶 [3/5] Mengkonfigurasi Hotspot Wi-Fi 5GHz (AYDIN-PRINT)..."
+WIFI_IFACE=$(nmcli device | grep wifi | awk '{print $1}' | head -n 1 || true)
 
-if command -v firewall-cmd &>/dev/null; then
-    echo "  -> Menambahkan izin port 5000 ke zone nm-shared (Hotspot)..."
-    sudo firewall-cmd --zone=nm-shared --add-port=5000/tcp --permanent 2>/dev/null || true
-    sudo firewall-cmd --zone=nm-shared --add-port=5000/tcp 2>/dev/null || true
-    
-    sudo firewall-cmd --zone=FedoraWorkstation --add-port=5000/tcp --permanent 2>/dev/null || true
-    sudo firewall-cmd --zone=FedoraWorkstation --add-port=5000/tcp 2>/dev/null || true
-    
-    sudo firewall-cmd --reload 2>/dev/null || true
-    echo -e "  ${GREEN}[✓] Firewall zone 'nm-shared' & 'FedoraWorkstation' port 5000 SUDAH DIBUKA!${NC}"
+if [ -n "$WIFI_IFACE" ]; then
+    nmcli con delete "Hotspot-Print" 2>/dev/null || true
+    nmcli con add type wifi ifname "$WIFI_IFACE" con-name "Hotspot-Print" autoconnect yes ssid "AYDIN-PRINT"
+    nmcli con modify "Hotspot-Print" 802-11-wireless.mode ap 802-11-wireless.band a 802-11-wireless.channel 36 || true
+    nmcli con modify "Hotspot-Print" 802-11-wireless-security.key-mgmt wpa-psk 802-11-wireless-security.psk "aydinprint"
+    nmcli con modify "Hotspot-Print" ipv4.method shared ipv6.method ignore
+    nmcli con up "Hotspot-Print" || true
+    echo "✅ Hotspot 5GHz 'AYDIN-PRINT' berhasil dikonfigurasi & diaktifkan."
+else
+    echo "⚠️  Interface Wi-Fi tidak ditemukan. Anda dapat mengaktifkan Hotspot manual."
 fi
 
-# 4. Generate Poster Meja
-echo ""
-echo -e "${BOLD}${BLUE}▶ [4/4] Memperbarui Poster Meja...${NC}"
-"$PY_BIN" "$APP_DIR/generate_poster.py"
+echo "⚙️ [4/5] Memasang Service Autostart (systemd background service)..."
+cat << 'EOF' > "$SYSTEMD_USER_DIR/printdrop.service"
+[Unit]
+Description=Aydin PrintDrop Web Studio Server
+After=network.target
+
+[Service]
+Type=simple
+WorkingDirectory=%h/PrintDrop
+ExecStart=/usr/bin/python3 %h/PrintDrop/app.py
+Restart=always
+RestartSec=3
+
+[Install]
+WantedBy=default.target
+EOF
+
+systemctl --user daemon-reload || true
+systemctl --user enable --now printdrop.service || true
+
+echo "📷 [5/5] Membuat QR Code Meja Kasir..."
+python3 -c "import qrcode; img = qrcode.make('http://10.42.0.1:5000'); img.save('$APP_DIR/QR_MEJA_PRINT.png'); print('QR Code tersimpan di: $APP_DIR/QR_MEJA_PRINT.png')" 2>/dev/null || true
 
 echo ""
-echo -e "${GREEN}╔════════════════════════════════════════════════════════════╗${NC}"
-echo -e "${GREEN}║           🎉 AKSES WEB SELESAI DIBUKA LENGKAP!             ║${NC}"
-echo -e "${GREEN}╚════════════════════════════════════════════════════════════╝${NC}"
-echo -e "📶 ${BOLD}Wi-Fi Hotspot Toko${NC}      : ${YELLOW}AYDIN-PRINT${NC} (Password: ${YELLOW}aydinprint${NC})"
-echo -e "🌐 ${BOLD}Web Pelanggan (dari HP)${NC} : ${BOLD}${GREEN}http://10.42.0.1:5000${NC}"
-echo -e "🛡️ ${BOLD}Panel Kasir (di PC)${NC}     : ${CYAN}http://127.0.0.1:5000/admin${NC}"
+echo "╔════════════════════════════════════════════════════════════╗"
+echo "║          🎉 INSTALASI SELESAI & BERJALAN LANCAR!           ║"
+echo "╚════════════════════════════════════════════════════════════╝"
+echo "📶 SSID Wi-Fi    : AYDIN-PRINT"
+echo "🔑 Password      : aydinprint"
+echo "🌐 URL Pelanggan : http://10.42.0.1:5000"
+echo "⚙️ URL Panel HPP : http://10.42.0.1:5000/admin"
+echo "📂 Folder Hasil  : $OUT_DIR"
+echo "🖼️ QR Code Kasir : $APP_DIR/QR_MEJA_PRINT.png"
 echo ""
